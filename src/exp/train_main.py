@@ -83,20 +83,43 @@ if __name__ == "__main__":
     pc.to(DEVICE)
     print(f"Num of params: {num_of_params(pc)}")
     model_name = ARGS.layer
-    train_procedure(
-        pc=pc,
-        dataset_name=ARGS.dataset,
-        model_dir=model_dir,
-        tensorboard_dir=ARGS.tensorboard_dir,
-        model_name=model_name,
-        rg_name=ARGS.rg,
-        layer_used=ARGS.layer,
-        k=ARGS.num_sums,
-        k_in=ARGS.num_sums if ARGS.num_input is None else ARGS.num_input,
-        batch_size=ARGS.batch_size,
-        lr=ARGS.lr,
-        max_num_epochs=ARGS.max_num_epochs,
-        patience=10,
-    )
+
+    cuda = torch.device('cuda')
+
+    if torch.cuda.is_available():
+        with torch.cuda.device(DEVICE):
+            train_procedure(
+                pc=pc,
+                dataset_name=ARGS.dataset,
+                model_dir=model_dir,
+                tensorboard_dir=ARGS.tensorboard_dir,
+                model_name=model_name,
+                rg_name=ARGS.rg,
+                layer_used=ARGS.layer,
+                k=ARGS.num_sums,
+                k_in=ARGS.num_sums if ARGS.num_input is None else ARGS.num_input,
+                batch_size=ARGS.batch_size,
+                lr=ARGS.lr,
+                max_num_epochs=ARGS.max_num_epochs,
+                patience=10,
+            )
+
+        print(eval_bpd(pc, test_x))
+    else:
+        train_procedure(
+            pc=pc,
+            dataset_name=ARGS.dataset,
+            model_dir=model_dir,
+            tensorboard_dir=ARGS.tensorboard_dir,
+            model_name=model_name,
+            rg_name=ARGS.rg,
+            layer_used=ARGS.layer,
+            k=ARGS.num_sums,
+            k_in=ARGS.num_sums if ARGS.num_input is None else ARGS.num_input,
+            batch_size=ARGS.batch_size,
+            lr=ARGS.lr,
+            max_num_epochs=ARGS.max_num_epochs,
+            patience=10,
+        )
 
     print(eval_bpd(pc, test_x))
