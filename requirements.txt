@@ -6,7 +6,7 @@ networkx==2.4.0
 tqdm==4.47.0
 filelock==3.0.12
 Pillow~=9.4.0
-torch~=1.13.1
+torch>=2.0
 scipy~=1.8.1
 tensorboard
 pandas
