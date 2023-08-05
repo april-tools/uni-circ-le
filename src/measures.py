@@ -3,6 +3,7 @@ from typing import List
 import numpy as np
 import torch
 
+from cirkit.models.functional import integrate
 from cirkit.models.tensorized_circuit import TensorizedPC
 
 
@@ -25,6 +26,8 @@ def eval_loglikelihood_batched(
 ):
     """Computes log-likelihood in batched way."""
     with torch.no_grad():
+
+        pc_pf = integrate(pc)
         idx_batches = torch.arange(
             0, x.shape[0], dtype=torch.int64, device=x.device
         ).split(batch_size)
@@ -38,14 +41,14 @@ def eval_loglikelihood_batched(
 
             outputs = pc(batch_x)
             ll_sample = log_likelihoods(outputs, batch_labels)
-            z = pc.integrate(batch_x, [i for i in range(pc.num_variables)])
-            ll_total += (ll_sample - z).sum().item()
+            ll_total += (ll_sample - pc_pf()).sum().item()
         return ll_total
 
 
 def get_outputs_batched(pc: TensorizedPC, x: torch.Tensor, batch_size=100):
 
     with torch.no_grad():
+        pc_pf = integrate(pc)
         output_list: List[torch.Tensor] = []  # shape x.shape[0], 1
         idx_batches = torch.arange(
             0, x.shape[0], dtype=torch.int64, device=x.device
@@ -55,8 +58,7 @@ def get_outputs_batched(pc: TensorizedPC, x: torch.Tensor, batch_size=100):
             batch_x = x[idx, :]
 
             batch_output = log_likelihoods(pc(batch_x))
-            z = pc.integrate(batch_x, [i for i in range(pc.num_variables)])
-            batch_output = batch_output - z
+            batch_output = batch_output - pc_pf()
 
             output_list.append(batch_output)
 
