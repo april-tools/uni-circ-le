@@ -18,6 +18,7 @@ def train_procedure(
     layer_used: str,
     k: int,
     k_in: int,
+    prod_exp: bool,
     batch_size=100,
     lr=0.01,
     max_num_epochs=200,
@@ -39,6 +40,7 @@ def train_procedure(
         "num_parameters": utils.num_of_params(pc),
         "k": k,
         "k_in": k_in,
+        "prod_exp": prod_exp,
         "patience": patience,
     }
 
