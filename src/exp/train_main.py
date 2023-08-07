@@ -78,7 +78,7 @@ if __name__ == "__main__":
         layer_kwargs={"prod_exp": True},
         efamily_kwargs={"num_categories": 256},
         num_inner_units=ARGS.num_sums,
-        num_input_units=ARGS.num_input,
+        num_input_units=ARGS.num_input if ARGS.num_input is not None else ARGS.num_sums,
     )
     pc.to(DEVICE)
     print(f"Num of params: {num_of_params(pc)}")
