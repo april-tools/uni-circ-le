@@ -163,11 +163,7 @@ def train_procedure(
         hparam_domain_discrete={
             "dataset": ["mnist", "fashion_mnist"],
             "rg": ["QG", "PD", "QT"],
-            "layer_type": [
-                "cp",
-                "cp-shared",
-                "tucker"
-            ],
+            "layer": ["cp", "cp-shared", "tucker"]
         },
     )
     writer.close()

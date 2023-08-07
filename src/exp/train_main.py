@@ -40,7 +40,7 @@ if __name__ == "__main__":
         "--num-input", type=int, default=None, help="Num input distributions"
     )
     PARSER.add_argument("--rg", default="quad_tree", help="Region graph used")
-    PARSER.add_argument("--layer", type=str, default=None, help="Layer type")
+    PARSER.add_argument("--layer", type=str, help="Layer type")
     PARSER.add_argument("--max-num-epochs", type=int, default=200, help="Max num epoch")
     PARSER.add_argument(
         "--batch-size", type=int, default=100, help="Batch size for optimization"
