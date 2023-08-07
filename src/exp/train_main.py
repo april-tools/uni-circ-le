@@ -57,6 +57,8 @@ if __name__ == "__main__":
     )
     assert ARGS.layer in LAYER_TYPES
     assert ARGS.rg in RG_TYPES
+    if ARGS.num_input is None:
+        ARGS.num_input = ARGS.num_sums
 
     model_dir = ARGS.model_dir
     train_x, valid_x, test_x = load_dataset(ARGS.dataset, device=DEVICE)
@@ -78,7 +80,7 @@ if __name__ == "__main__":
         layer_kwargs={"prod_exp": True},
         efamily_kwargs={"num_categories": 256},
         num_inner_units=ARGS.num_sums,
-        num_input_units=ARGS.num_input if ARGS.num_input is not None else ARGS.num_sums,
+        num_input_units=ARGS.num_input
     )
     pc.to(DEVICE)
     print(f"Num of params: {num_of_params(pc)}")
@@ -93,7 +95,7 @@ if __name__ == "__main__":
         rg_name=ARGS.rg,
         layer_used=ARGS.layer,
         k=ARGS.num_sums,
-        k_in=ARGS.num_sums if ARGS.num_input is None else ARGS.num_input,
+        k_in=ARGS.num_input,
         prod_exp=True,
         batch_size=ARGS.batch_size,
         lr=ARGS.lr,
