@@ -20,9 +20,10 @@ LAYER_TYPES = {
 RG_TYPES = {"QG", "QT", "PD"}
 
 if __name__ == "__main__":
-    init_random_seeds()
+
 
     PARSER = argparse.ArgumentParser("MNIST experiments.")
+    PARSER.add_argument("--seed", type=int, default=42, help="Random seed")
     PARSER.add_argument(
         "--gpu", type=int, default=None, help="Device on which run the benchmark"
     )
@@ -49,6 +50,8 @@ if __name__ == "__main__":
         "--tensorboard-dir", default=None, type=str, help="Path for tensorboard"
     )
     ARGS = PARSER.parse_args()
+
+    init_random_seeds(seed=ARGS.seed)
 
     DEVICE = (
         f"cuda:{ARGS.gpu}"
