@@ -2,16 +2,17 @@ import os
 import sys
 sys.path.append("../cirkit")
 
+from cirkit.new.model.functional import integrate
+from cirkit.new.model.tensorized_circuit import TensorizedCircuit
 from torch.utils.tensorboard import SummaryWriter
-from cirkit.models.functional import integrate
 import utils
-from cirkit.models.tensorized_circuit import TensorizedPC
+# from cirkit.models.tensorized_circuit import TensorizedPC
 from measures import *
 
 
 
 def train_procedure(
-    pc: TensorizedPC,
+    pc: TensorizedCircuit,
     dataset_name: str,
     model_dir: str,
     tensorboard_dir: str,
@@ -27,7 +28,7 @@ def train_procedure(
     patience=3,
     verbose=True,
 ):
-
+    
     pc_pf = integrate(pc)
     torch.set_default_tensor_type("torch.FloatTensor")
 
