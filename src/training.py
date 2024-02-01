@@ -1,11 +1,13 @@
 import os
+import sys
+sys.path.append("../cirkit")
 
 from torch.utils.tensorboard import SummaryWriter
-
+from cirkit.models.functional import integrate
 import utils
 from cirkit.models.tensorized_circuit import TensorizedPC
 from measures import *
-from cirkit.models.functional import integrate
+
 
 
 def train_procedure(
