@@ -2,8 +2,10 @@ import argparse
 import torch
 import sys
 
+
 sys.path.append("src")
 sys.path.append("cirkit")
+from cirkit.reparams.leaf import ReparamExp
 from cirkit.layers.input.exp_family.categorical import CategoricalLayer
 from cirkit.layers.sum_product import CollapsedCPLayer, TuckerLayer, SharedCPLayer
 from cirkit.models.tensorized_circuit import TensorizedPC
@@ -85,7 +87,8 @@ if __name__ == "__main__":
         # layer_kwargs={"prod_exp": True},
         efamily_kwargs={"num_categories": 256},
         num_inner_units=ARGS.num_sums,
-        num_input_units=ARGS.num_input
+        num_input_units=ARGS.num_input,
+        reparam=ReparamExp
     )
     pc.to(DEVICE)
     print(f"Num of params: {num_of_params(pc)}")

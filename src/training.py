@@ -119,9 +119,9 @@ def train_procedure(
             # CHECK AGAIN
             utils.check_validity_params(pc)
 
-            # project params in inner layers
-            for layer in pc.inner_layers:
-                layer.clamp_params()
+            # project params in inner layers TODO: remove or edit?
+            # for layer in pc.inner_layers:
+            #    layer.clamp_params()
 
         train_ll = eval_loglikelihood_batched(pc, x_train) / x_train.shape[0]
         valid_ll = eval_loglikelihood_batched(pc, x_valid) / x_valid.shape[0]
