@@ -1,0 +1,16 @@
+{
+  "script_path": "src/exp/train_main.py",
+  "datasets": ["mnist"],
+
+  "hparams_grid": {
+      "num_sums": [4],
+      "rg": ["QG"],
+      "lr": [0.001],
+      "batch_size": [100],
+      "max_num_epochs": [500],
+      "layer": ["cp"]
+    },
+
+  "model_dir": "experiments/models",
+  "tensorboard_dir": "experiments/tensorboard/runs"
+}
