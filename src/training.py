@@ -1,18 +1,17 @@
 import os
 import sys
-sys.path.append("../cirkit")
+sys.path.append("cirkit")
 
-from cirkit.new.model.functional import integrate
-from cirkit.new.model.tensorized_circuit import TensorizedCircuit
+from cirkit.models.functional import integrate
+from cirkit.models.tensorized_circuit import TensorizedPC
 from torch.utils.tensorboard import SummaryWriter
 import utils
-# from cirkit.models.tensorized_circuit import TensorizedPC
 from measures import *
 
 
 
 def train_procedure(
-    pc: TensorizedCircuit,
+    pc: TensorizedPC,
     dataset_name: str,
     model_dir: str,
     tensorboard_dir: str,
@@ -28,7 +27,7 @@ def train_procedure(
     patience=3,
     verbose=True,
 ):
-    
+
     pc_pf = integrate(pc)
     torch.set_default_tensor_type("torch.FloatTensor")
 
@@ -96,7 +95,6 @@ def train_procedure(
     best_valid_ll = valid_ll
     best_test_ll = eval_loglikelihood_batched(pc, x_test) / x_test.shape[0]
     patience_counter = patience
-    pc_scope = [i for i in range(pc.num_variables)]
     for epoch_count in range(1, max_num_epochs + 1):
 
         # # # # # #
@@ -104,12 +102,12 @@ def train_procedure(
         # # # # # #
         idx_batches = torch.randperm(x_train.shape[0]).split(batch_size)
         for batch_count, idx in enumerate(idx_batches):
-            batch_x = x_train[idx, :]
+            batch_x = x_train[idx, :].unsqueeze(dim=-1)
 
             if batch_size == 1:
                 batch_x = batch_x.reshape(1, -1)
 
-            log_likelihood = (pc(batch_x) - pc_pf()).sum(0)
+            log_likelihood = (pc(batch_x) - pc_pf(batch_x)).sum(0)
             objective = -log_likelihood
             optimizer.zero_grad()
             objective.backward()

@@ -8,7 +8,7 @@ import torch
 from emnist import extract_test_samples, extract_training_samples
 
 import datasets
-from cirkit.new.model.tensorized_circuit import TensorizedCircuit
+from cirkit.models.tensorized_circuit import TensorizedPC
 
 DEBD = [
     "ad",
@@ -38,7 +38,7 @@ DEBD = [
 MNIST = ["mnist", "fashion_mnist", "balanced", "byclass", "letters", "e_mnist"]
 
 
-def load_model(path: str, device="cpu") -> TensorizedCircuit:
+def load_model(path: str, device="cpu") -> TensorizedPC:
     return torch.load(path, map_location=device)
 
 
@@ -123,7 +123,7 @@ def init_random_seeds(seed: int = 42):
     os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":16:8"
 
 
-def num_of_params(pc: TensorizedCircuit) -> int:
+def num_of_params(pc: TensorizedPC) -> int:
     num_param = sum(p.numel() for p in pc.input_layer.parameters())
     for layer in pc.inner_layers:
         num_param += sum(p.numel() for p in layer.parameters())
@@ -131,12 +131,12 @@ def num_of_params(pc: TensorizedCircuit) -> int:
     return num_param
 
 
-def get_pc_device(pc: TensorizedCircuit) -> torch.DeviceObjType:
+def get_pc_device(pc: TensorizedPC) -> torch.DeviceObjType:
     for par in pc.input_layer.parameters():
         return par.device
 
 
-def check_validity_params(pc: TensorizedCircuit):
+def check_validity_params(pc: TensorizedPC):
 
     for p in pc.input_layer.parameters():
         if torch.isnan(p.grad).any():

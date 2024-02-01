@@ -3,8 +3,8 @@ from typing import List
 import numpy as np
 import torch
 
-from cirkit.new.model.functional import integrate
-from cirkit.new.model.tensorized_circuit import TensorizedCircuit
+from cirkit.models.functional import integrate
+from cirkit.models.tensorized_circuit import TensorizedPC
 
 
 def log_likelihoods(outputs, labels=None):
@@ -22,7 +22,7 @@ def log_likelihoods(outputs, labels=None):
 
 
 def eval_loglikelihood_batched(
-    pc: TensorizedCircuit, x: torch.Tensor, labels=None, batch_size=100
+    pc: TensorizedPC, x: torch.Tensor, labels=None, batch_size=100
 ):
     """Computes log-likelihood in batched way."""
     with torch.no_grad():
@@ -33,7 +33,7 @@ def eval_loglikelihood_batched(
         ).split(batch_size)
         ll_total = 0.0
         for batch_count, idx in enumerate(idx_batches):
-            batch_x = x[idx, :]
+            batch_x = x[idx, :].unsqueeze(dim=-1)
             if labels is not None:
                 batch_labels = labels[idx]
             else:
@@ -41,11 +41,11 @@ def eval_loglikelihood_batched(
 
             outputs = pc(batch_x)
             ll_sample = log_likelihoods(outputs, batch_labels)
-            ll_total += (ll_sample - pc_pf()).sum().item()
+            ll_total += (ll_sample - pc_pf(batch_x)).sum().item()
         return ll_total
 
 
-def get_outputs_batched(pc: TensorizedCircuit, x: torch.Tensor, batch_size=100):
+def get_outputs_batched(pc: TensorizedPC, x: torch.Tensor, batch_size=100):
 
     with torch.no_grad():
         pc_pf = integrate(pc)
@@ -66,7 +66,7 @@ def get_outputs_batched(pc: TensorizedCircuit, x: torch.Tensor, batch_size=100):
         return output
 
 
-def eval_bpd(pc: TensorizedCircuit, x: torch.Tensor) -> float:
+def eval_bpd(pc: TensorizedPC, x: torch.Tensor) -> float:
     """
     Note: if ll is None then is computed, otherwise it is assumed that
     it has already been divided by the number of examples
@@ -79,5 +79,5 @@ def eval_bpd(pc: TensorizedCircuit, x: torch.Tensor) -> float:
     return -ll / (np.log(2) * pc.num_variables)  # TODO: check this
 
 
-def bpd_from_ll(pc: TensorizedCircuit, ll: float) -> float:
+def bpd_from_ll(pc: TensorizedPC, ll: float) -> float:
     return -ll / (np.log(2) * pc.num_variables)

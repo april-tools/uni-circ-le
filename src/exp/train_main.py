@@ -1,9 +1,11 @@
 import argparse
-
 import torch
+import sys
 
-from cirkit.layers.input.exp_family import CategoricalLayer
-from cirkit.layers.sum_product import CPCollapsedLayer, CPSharedLayer, TuckerLayer
+sys.path.append("src")
+sys.path.append("cirkit")
+from cirkit.layers.input.exp_family.categorical import CategoricalLayer
+from cirkit.layers.sum_product import CollapsedCPLayer, TuckerLayer, SharedCPLayer
 from cirkit.models.tensorized_circuit import TensorizedPC
 from cirkit.region_graph import RegionGraph
 from cirkit.region_graph.poon_domingos import PoonDomingos
@@ -14,8 +16,8 @@ from utils import init_random_seeds, load_dataset, num_of_params
 
 LAYER_TYPES = {
     "tucker": TuckerLayer,
-    "cp": CPCollapsedLayer,
-    "cp-shared": CPSharedLayer,
+    "cp": CollapsedCPLayer,
+    "cp-shared": SharedCPLayer,
 }
 RG_TYPES = {"QG", "QT", "PD"}
 
@@ -80,7 +82,7 @@ if __name__ == "__main__":
         rg=rg,
         layer_cls=LAYER_TYPES[ARGS.layer],
         efamily_cls=CategoricalLayer,
-        layer_kwargs={"prod_exp": True},
+        # layer_kwargs={"prod_exp": True},
         efamily_kwargs={"num_categories": 256},
         num_inner_units=ARGS.num_sums,
         num_input_units=ARGS.num_input
