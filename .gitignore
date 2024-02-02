@@ -158,4 +158,5 @@ cython_debug/
 
 # data and experiments
 src/data
+out/
 experiments/

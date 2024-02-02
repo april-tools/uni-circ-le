@@ -42,7 +42,8 @@ if __name__ == "__main__":
     )
     PARSER.add_argument("--num-sums", type=int, default=128, help="Num sums")
     PARSER.add_argument(
-        "--num-input", type=int, default=None, help="Num input distributions"
+        "--num-input", type=int, default=None,
+        help="Num input distributions per leaf, if None then is equal to num-sums"
     )
     PARSER.add_argument("--rg", default="quad_tree", help="Region graph used")
     PARSER.add_argument("--layer", type=str, help="Layer type")

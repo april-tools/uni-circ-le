@@ -76,8 +76,8 @@ def eval_bpd(pc: TensorizedPC, x: torch.Tensor) -> float:
     :return:
     """
     ll: float = eval_loglikelihood_batched(pc, x) / x.shape[0]
-    return -ll / (np.log(2) * pc.num_variables)  # TODO: check this
+    return -ll / (np.log(2) * pc.num_vars)  # TODO: check this
 
 
 def bpd_from_ll(pc: TensorizedPC, ll: float) -> float:
-    return -ll / (np.log(2) * pc.num_variables)
+    return -ll / (np.log(2) * pc.num_vars)
