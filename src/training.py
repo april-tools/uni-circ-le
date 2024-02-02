@@ -1,6 +1,7 @@
 import os
 import sys
 import argparse
+from typing import Literal
 import torch
 
 sys.path.append("src")
@@ -35,15 +36,11 @@ LEAF_TYPES = {"cat": CategoricalLayer, "bin": BinomialLayer}
 def train_procedure(
     *,
     pc: TensorizedPC,
+    pc_hypar: dict,
     dataset_name: str,
     save_path: str,
-    tensorboard_dir: str,
+    tensorboard_dir: str = "runs",
     model_name: str,
-    rg_name: str,
-    layer_used: str,
-    leaf_type: str,
-    k: int,
-    k_in: int,
     batch_size=100,
     lr=0.01,
     max_num_epochs=200,
@@ -53,12 +50,12 @@ def train_procedure(
     """Train a TensorizedPC using gradient descent.
 
     Args:
-        pc (TensorizedPC): _description_
-        dataset_name (str): _description_
-        save_path (str): _description_
-        tensorboard_dir (str): _description_
-        model_name (str): _description_
-        rg_name (str): _description_
+        pc (TensorizedPC): prob. circ. to train
+        dataset_name (str): dataset name
+        save_path (str): path (including file name and extension) for saving the trained model
+        tensorboard_dir (str): directory where to write tensorboard logs
+        model_name (str): name for the model in tensorbboard
+        rg_name (str): Name
         layer_used (str): _description_
         leaf_type (str): _description_
         k (int): _description_
@@ -73,60 +70,43 @@ def train_procedure(
     torch.set_default_tensor_type("torch.FloatTensor")
 
     # make experiment name string
-    hyperparams = {
-        "rg": rg_name,
-        "layer": layer_used,
-        "dataset": dataset_name,
-        "leaf": leaf_type,
-        "lr": lr,
-        "optimizer": "Adam",
-        "batch_size": batch_size,
-        "num_parameters": num_of_params(pc),
-        "k": k,
-        "k_in": k_in,
-        "patience": patience,
-    }
+    exp_name = "_".join([pc_hypar["DATA"], pc_hypar["RG"], pc_hypar["PAR"], pc_hypar["LEAF"],
+                         f"K_{pc_hypar['K']}", f"KIN_{pc_hypar['K_IN']}", f"lr_{pc_hypar['lr']}"])
 
-    hyp_in_name = {
-        k: hyperparams[k] for k in {"dataset", "rg", "layer", "k", "k_in", "lr"}
-    }
-    experiment_name = "".join([f"{key}_{value}_" for key, value in hyp_in_name.items()])
-    experiment_name += "".join(
-        [
-            f"{key}_{value:.3f}_"
-            for key, value in hyp_in_name.items()
-            if type(value) == float
-        ]
-    )
-    experiment_name = f"{model_name}_" + experiment_name + f"_{get_date_time_str()}"
-    assert experiment_name != ""
-    print("Experiment name: " + experiment_name)
+    exp_name = f"{exp_name}_{get_date_time_str()}"
+    print("Experiment name: " + exp_name)
 
+    # load data
     x_train, x_valid, x_test = load_dataset(dataset_name, device=get_pc_device(pc))
+    # load optimizer
+    optimizer = torch.optim.Adam(pc.parameters(), lr=lr)
 
-    optimizer = torch.optim.Adam(pc.parameters(), lr=lr)  # check if is correct
-
-    if tensorboard_dir is None:
-        tensorboard_dir = "runs"
+    # Setup Tensorboard writer
     writer = SummaryWriter(
-        log_dir=os.path.join(os.getcwd(), f"{tensorboard_dir}/{experiment_name}")
+        log_dir=os.path.join(os.getcwd(), f"{tensorboard_dir}/{exp_name}")
     )
+
+    # maybe creates save dir
     if not os.path.exists(os.path.dirname(save_path)):
         os.makedirs(os.path.dirname(save_path))
 
+    # Compute train and validation log-likelihood
     train_ll = eval_loglikelihood_batched(pc, x_train) / x_train.shape[0]
     valid_ll = eval_loglikelihood_batched(pc, x_valid) / x_valid.shape[0]
 
-    if verbose:
-        print("[Before Learning]")
-        print("\ttrain LL {}   valid LL {}".format(train_ll, valid_ll))
+    def maybe_print_ll(tr_ll: float, val_ll: float, text: str):
+        if verbose:
+            print(text)
+            print("\ttrain LL {}   valid LL {}".format(tr_ll, val_ll))
+
+    maybe_print_ll(train_ll, valid_ll, "[Before Learning]")
 
     # ll on tensorboard
     writer.add_scalar("train_ll", train_ll, 0)
     writer.add_scalar("valid_ll", valid_ll, 0)
 
-    ####
-    # SETUP
+    # # # # # # # # # # # #
+    # SETUP Early Stopping
     best_valid_ll = valid_ll
     best_test_ll = eval_loglikelihood_batched(pc, x_test) / x_test.shape[0]
     patience_counter = patience
@@ -135,7 +115,7 @@ def train_procedure(
     for epoch_count in range(1, max_num_epochs + 1):
 
         # # # # # #
-        #   LEARN
+        #  Train  #
         # # # # # #
         idx_batches = torch.randperm(x_train.shape[0]).split(batch_size)
 
@@ -171,15 +151,13 @@ def train_procedure(
             #    layer.clamp_params()
 
             if batch_count % 10 == 0:
-                    pbar.set_description(f"Epoch {epoch_count} Train LL={objective.item():.2f})")
+                    pbar.set_description(f"Epoch {epoch_count} Train LL={objective.item() / batch_size :.2f})")
 
 
         train_ll = eval_loglikelihood_batched(pc, x_train) / x_train.shape[0]
         valid_ll = eval_loglikelihood_batched(pc, x_valid) / x_valid.shape[0]
 
-        if verbose:
-            print(f"[After epoch {epoch_count}]")
-            print("\ttrain LL {}   valid LL {}".format(train_ll, valid_ll))
+        maybe_print_ll(train_ll, valid_ll, f"[After epoch {epoch_count}]")
 
         # Not improved
         if valid_ll <= best_valid_ll:
@@ -205,17 +183,17 @@ def train_procedure(
         writer.flush()
 
     writer.add_hparams(
-        hparam_dict=hyperparams,
-        metric_dict={
+        hparam_dict=pc_hypar,
+        metric_dict = {
             "Best/Valid/ll": best_valid_ll,
             "Best/Valid/bpd": bpd_from_ll(pc, best_valid_ll),
             "Best/Test/ll": float(best_test_ll),
             "Best/Test/bpd": float(bpd_from_ll(pc, best_test_ll)),
         },
-        hparam_domain_discrete={
-            "dataset": ["mnist", "fashion_mnist"],
+        hparam_domain_discrete = {
+            "dataset": ["mnist", "fashion_mnist", "celeba"],
             "rg": ["QG", "PD", "QT"],
-            "layer": ["cp", "cp-shared", "tucker"],
+            "layer": ["cp", "cpshared", "tucker"],
         },
     )
     writer.close()
@@ -322,15 +300,22 @@ if __name__ == "__main__":
     # Train the model
     train_procedure(
         pc=pc,
+        pc_hypar={
+            "RG": ARGS.rg,
+            "PAR": ARGS.layer,
+            "LEAF": ARGS.leaf,
+            "K": ARGS.num_sums,
+            "K_IN": ARGS.num_input,
+            "DATA": ARGS.dataset,
+            "lr": ARGS.lr,
+            "optimizer": "Adam",
+            "batch_size": ARGS.batch_size,
+            "num_par": num_of_params(pc)
+            },
         dataset_name=ARGS.dataset,
         save_path=save_path,
         tensorboard_dir=ARGS.tensorboard_dir,
         model_name=model_name,
-        rg_name=ARGS.rg,
-        layer_used=ARGS.layer,
-        leaf_type=ARGS.leaf,
-        k=ARGS.num_sums,
-        k_in=ARGS.num_input,
         batch_size=ARGS.batch_size,
         lr=ARGS.lr,
         max_num_epochs=ARGS.max_num_epochs,
