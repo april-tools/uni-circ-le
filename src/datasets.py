@@ -135,7 +135,7 @@ def load_mnist(data_dir="../data/mnist"):
 
     fd = open(os.path.join(data_dir, "train-images-idx3-ubyte"))
     loaded = np.fromfile(file=fd, dtype=np.uint8)
-    print(loaded.dtype)
+    # print(loaded.dtype)
     train_x = loaded[16:].reshape((60000, 784)).astype(np.float32)
 
     fd = open(os.path.join(data_dir, "train-labels-idx1-ubyte"))

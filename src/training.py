@@ -4,8 +4,8 @@ import argparse
 from typing import Literal
 import torch
 
-sys.path.append("src")
-sys.path.append("cirkit")
+sys.path.append(os.path.join(os.getcwd(), "cirkit"))
+sys.path.append(os.path.join(os.getcwd(), "src"))
 
 from torch.utils.tensorboard import SummaryWriter
 from utils import *
