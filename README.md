@@ -1,9 +1,13 @@
 # uni-circ-le
 
 ## Early Experiments to run
+
 We want to check the difference in performance with the various re-parameterizations for mixture weights.
 The re-parameterizations here used are:
--
+- `exp`: $\exp(\theta)$
+- `exp-temp`: $\exp(\frac{\theta}{\sqrt{K}}) $
+- `relu`: $\max(0, \theta)$
+- `softplus`: $\log(1 + \exp(\theta))$
 
 First, we train the best performing model (fig. 4a of the workshop paper)
 ```bash
