@@ -233,7 +233,7 @@ if __name__ == "__main__":
         "--batch-size", type=int, default=100, help="Batch size for optimization"
     )
     PARSER.add_argument(
-        "--tensorboard-dir", default=None, type=str, help="Path for tensorboard"
+        "--tensorboard-dir", default="runs", type=str, help="Path for tensorboard"
     )
     ARGS = PARSER.parse_args()
 
