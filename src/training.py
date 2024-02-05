@@ -15,7 +15,7 @@ from tqdm import tqdm
 # cirkit
 from cirkit.models.functional import integrate
 from cirkit.models.tensorized_circuit import TensorizedPC
-from cirkit.reparams.leaf import ReparamExp
+from cirkit.reparams.leaf import ReparamExp, ReparamLeaf
 from cirkit.layers.input.exp_family.categorical import CategoricalLayer
 from cirkit.layers.input.exp_family.binomial import BinomialLayer
 from cirkit.layers.sum_product import CollapsedCPLayer, TuckerLayer, SharedCPLayer
@@ -24,6 +24,14 @@ from cirkit.region_graph import RegionGraph
 from cirkit.region_graph.poon_domingos import PoonDomingos
 from cirkit.region_graph.quad_tree import QuadTree
 
+class ReparamReLU(ReparamLeaf):
+    def forward(self) -> torch.Tensor:
+        return torch.relu(self.param)
+
+class ReparamSoftplus(ReparamLeaf):
+    def forward(self) -> torch.Tensor:
+        return torch.nn.functional.softplus(self.param)
+
 LAYER_TYPES = {
     "tucker": TuckerLayer,
     "cp": CollapsedCPLayer,
@@ -31,6 +39,15 @@ LAYER_TYPES = {
 }
 RG_TYPES = {"QG", "QT", "PD"}
 LEAF_TYPES = {"cat": CategoricalLayer, "bin": BinomialLayer}
+REPARAM_TYPES = {
+    "exp": ReparamExp,
+    "relu": ReparamReLU,
+    "softplus": ReparamSoftplus
+    # "exp_temp" will be added at run-time
+}
+
+
+
 
 
 def train_procedure(
@@ -40,12 +57,12 @@ def train_procedure(
     dataset_name: str,
     save_path: str,
     tensorboard_dir: str = "runs",
-    model_name: str,
-    batch_size=100,
+    batch_size=128,
     lr=0.01,
     max_num_epochs=200,
-    patience=3,
+    patience=10,
     verbose=True,
+    compute_train_ll=False
 ):
     """Train a TensorizedPC using gradient descent.
 
@@ -91,24 +108,26 @@ def train_procedure(
         os.makedirs(os.path.dirname(save_path))
 
     # Compute train and validation log-likelihood
-    train_ll = eval_loglikelihood_batched(pc, x_train) / x_train.shape[0]
+    train_ll = eval_loglikelihood_batched(pc, x_train) / x_train.shape[0] if compute_train_ll else np.NAN
     valid_ll = eval_loglikelihood_batched(pc, x_valid) / x_valid.shape[0]
 
-    def maybe_print_ll(tr_ll: float, val_ll: float, text: str):
-        if verbose:
-            print(text)
-            print("\ttrain LL {}   valid LL {}".format(tr_ll, val_ll))
+    def print_ll(tr_ll: float, val_ll: float, text: str):
+        print(text, end="")
+        if not np.isnan(tr_ll):
+            print(f"\ttrain LL {tr_ll}", end="")
+        print(f"\tvalid LL {val_ll}")
 
-    maybe_print_ll(train_ll, valid_ll, "[Before Learning]")
+    print_ll(train_ll, valid_ll, "[Before Learning]")
 
     # ll on tensorboard
-    writer.add_scalar("train_ll", train_ll, 0)
+    if not np.isnan(train_ll):
+        writer.add_scalar("train_ll", train_ll, 0)
     writer.add_scalar("valid_ll", valid_ll, 0)
 
     # # # # # # # # # # # #
     # SETUP Early Stopping
     best_valid_ll = valid_ll
-    best_test_ll = eval_loglikelihood_batched(pc, x_test) / x_test.shape[0]
+    # best_test_ll = eval_loglikelihood_batched(pc, x_test) / x_test.shape[0]
     patience_counter = patience
 
 
@@ -120,13 +139,16 @@ def train_procedure(
         idx_batches = torch.randperm(x_train.shape[0]).split(batch_size)
 
         # setup tqdm
-        pbar = tqdm(
-            iterable=enumerate(idx_batches),
-            total=len(idx_batches),
-            unit="steps",
-            ascii=" ▖▘▝▗▚▞█",
-            ncols=120,
-            )
+        if verbose:
+            pbar = tqdm(
+                iterable=enumerate(idx_batches),
+                total=len(idx_batches),
+                unit="steps",
+                ascii=" ▖▘▝▗▚▞█",
+                ncols=120,
+                )
+        else:
+            pbar = enumerate(idx_batches)
 
         for batch_count, idx in pbar:
             batch_x = x_train[idx, :].unsqueeze(dim=-1)
@@ -150,50 +172,55 @@ def train_procedure(
             # for layer in pc.inner_layers:
             #    layer.clamp_params()
 
-            if batch_count % 10 == 0:
+            if verbose:
+                if batch_count % 10 == 0:
                     pbar.set_description(f"Epoch {epoch_count} Train LL={objective.item() / batch_size :.2f})")
 
-
-        train_ll = eval_loglikelihood_batched(pc, x_train) / x_train.shape[0]
+        if not np.isnan(train_ll):
+            train_ll = eval_loglikelihood_batched(pc, x_train) / x_train.shape[0]
         valid_ll = eval_loglikelihood_batched(pc, x_valid) / x_valid.shape[0]
 
-        maybe_print_ll(train_ll, valid_ll, f"[After epoch {epoch_count}]")
+        print_ll(train_ll, valid_ll, f"[After epoch {epoch_count}]")
 
         # Not improved
         if valid_ll <= best_valid_ll:
             patience_counter -= 1
             if patience_counter == 0:
-                if verbose:
-                    print("-> Validation LL did not improve, early stopping")
+                print("-> Validation LL did not improve, early stopping")
                 break
 
         else:
             # Improved, save model
             torch.save(pc, save_path)
-            if verbose:
-                print("-> Saved model")
+            print("-> Saved model")
 
             # update best_valid_ll
             best_valid_ll = valid_ll
-            best_test_ll = eval_loglikelihood_batched(pc, x_test) / x_test.shape[0]
+            # best_test_ll = eval_loglikelihood_batched(pc, x_test) / x_test.shape[0]
             patience_counter = patience
 
-        writer.add_scalar("train_ll", train_ll, epoch_count)
+        if not np.isnan(train_ll):
+            writer.add_scalar("train_ll", train_ll, epoch_count)
         writer.add_scalar("valid_ll", valid_ll, epoch_count)
         writer.flush()
+
+    # reload the model and compute test_ll
+    pc = torch.load(save_path)
+    pc_pf = integrate(pc)
+    best_test_ll = eval_loglikelihood_batched(pc, x_test) / x_test.shape[0]
 
     writer.add_hparams(
         hparam_dict=pc_hypar,
         metric_dict = {
-            "Best/Valid/ll": best_valid_ll,
-            "Best/Valid/bpd": bpd_from_ll(pc, best_valid_ll),
+            "Best/Valid/ll": float(best_valid_ll),
+            "Best/Valid/bpd": float(bpd_from_ll(pc, best_valid_ll)),
             "Best/Test/ll": float(best_test_ll),
             "Best/Test/bpd": float(bpd_from_ll(pc, best_test_ll)),
         },
         hparam_domain_discrete = {
-            "dataset": ["mnist", "fashion_mnist", "celeba"],
-            "rg": ["QG", "PD", "QT"],
-            "layer": ["cp", "cpshared", "tucker"],
+            "DATA": ["mnist", "fashion_mnist", "celeba"],
+            "RG": ["QG", "PD", "QT"],
+            "PAR": ["cp", "cpshared", "tucker"],
         },
     )
     writer.close()
@@ -228,13 +255,16 @@ if __name__ == "__main__":
         "--layer", type=str, help="Layer type: either 'tucker', 'cp' or 'cp-shared'"
     )
     PARSER.add_argument("--leaf", type=str, help="Leaf type: either 'cat' or 'bin'")
+    PARSER.add_argument("--reparam", type=str, default="exp", help="Either 'exp', 'relu', or 'exp_temp'")
     PARSER.add_argument("--max-num-epochs", type=int, default=200, help="Max num epoch")
     PARSER.add_argument(
-        "--batch-size", type=int, default=100, help="Batch size for optimization"
+        "--batch-size", type=int, default=128, help="Batch size for optimization"
     )
     PARSER.add_argument(
         "--tensorboard-dir", default="runs", type=str, help="Path for tensorboard"
     )
+    PARSER.add_argument("--train-ll", type=bool, default=False, help="Compute train-ll at the end of each epoch")
+    PARSER.add_argument("--progressbar", type=bool, default=False, help="Print the progress bar")
     ARGS = PARSER.parse_args()
 
     init_random_seeds(seed=ARGS.seed)
@@ -270,6 +300,12 @@ if __name__ == "__main__":
     elif ARGS.leaf == "bin":
         efamily_kwargs = {"n": 256}
 
+    # setup reparam
+    class ReparamExpTemp(ReparamLeaf):
+        def forward(self) -> torch.Tensor:
+            return torch.exp(self.param / np.sqrt(ARGS.num_sums))
+    REPARAM_TYPES["exp_temp"] = ReparamExpTemp
+
     # Create probabilistic circuit
     pc = TensorizedPC.from_region_graph(
         rg=rg,
@@ -278,7 +314,7 @@ if __name__ == "__main__":
         efamily_kwargs=efamily_kwargs,
         num_inner_units=ARGS.num_sums,
         num_input_units=ARGS.num_input,
-        reparam=ReparamExp,
+        reparam=REPARAM_TYPES[ARGS.reparam],
     )
     pc.to(DEVICE)
     print(f"Num of params: {num_of_params(pc)}")
@@ -292,6 +328,7 @@ if __name__ == "__main__":
         ARGS.rg,
         ARGS.layer,
         ARGS.leaf,
+        ARGS.reparam,
         str(ARGS.num_sums),
         str(ARGS.lr),
         get_date_time_str() + ".mdl",
@@ -315,11 +352,12 @@ if __name__ == "__main__":
         dataset_name=ARGS.dataset,
         save_path=save_path,
         tensorboard_dir=ARGS.tensorboard_dir,
-        model_name=model_name,
         batch_size=ARGS.batch_size,
         lr=ARGS.lr,
         max_num_epochs=ARGS.max_num_epochs,
         patience=10,
+        compute_train_ll=ARGS.train_ll,
+        verbose=ARGS.progressbar
     )
 
     print(eval_bpd(pc, test_x))
