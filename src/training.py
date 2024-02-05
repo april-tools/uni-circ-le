@@ -221,6 +221,8 @@ def train_procedure(
             "DATA": ["mnist", "fashion_mnist", "celeba"],
             "RG": ["QG", "PD", "QT"],
             "PAR": ["cp", "cpshared", "tucker"],
+            "LEAF": ["bin", "cat"],
+            "REPARAM": ["softplus", "exp", "exp_temp", "relu"]
         },
     )
     writer.close()
@@ -338,6 +340,7 @@ if __name__ == "__main__":
             "RG": ARGS.rg,
             "PAR": ARGS.layer,
             "LEAF": ARGS.leaf,
+            "REPARAM": ARGS.reparam,
             "K": ARGS.num_sums,
             "K_IN": ARGS.num_input,
             "DATA": ARGS.dataset,
