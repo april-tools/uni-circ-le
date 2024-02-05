@@ -28,8 +28,9 @@ from cirkit.region_graph.poon_domingos import PoonDomingos
 from cirkit.region_graph.quad_tree import QuadTree
 
 class ReparamReLU(ReparamLeaf):
+    eps = torch.finfo(torch.get_default_dtype()).tiny
     def forward(self) -> torch.Tensor:
-        return torch.relu(self.param)
+        return torch.clamp(self.param, min=ReparamReLU.eps)
 
 class ReparamSoftplus(ReparamLeaf):
     def forward(self) -> torch.Tensor:
@@ -59,7 +60,6 @@ def train_procedure(
     pc_hypar: dict,
     dataset_name: str,
     save_path: str,
-    tensorboard_dir: str = "runs",
     batch_size=128,
     lr=0.01,
     max_num_epochs=200,
@@ -102,9 +102,7 @@ def train_procedure(
     optimizer = torch.optim.Adam(pc.parameters(), lr=lr)
 
     # Setup Tensorboard writer
-    writer = SummaryWriter(
-        log_dir=os.path.join(os.getcwd(), f"{tensorboard_dir}/{exp_name}")
-    )
+    writer = SummaryWriter(log_dir=os.path.dirname(save_path))
 
     # maybe creates save dir
     if not os.path.exists(os.path.dirname(save_path)):
@@ -209,7 +207,6 @@ def train_procedure(
 
     # reload the model and compute test_ll
     pc = torch.load(save_path)
-    pc_pf = integrate(pc)
     best_test_ll = eval_loglikelihood_batched(pc, x_test) / x_test.shape[0]
 
     writer.add_hparams(
@@ -262,9 +259,6 @@ if __name__ == "__main__":
     PARSER.add_argument("--max-num-epochs", type=int, default=200, help="Max num epoch")
     PARSER.add_argument(
         "--batch-size", type=int, default=128, help="Batch size for optimization"
-    )
-    PARSER.add_argument(
-        "--tensorboard-dir", default="runs", type=str, help="Path for tensorboard"
     )
     PARSER.add_argument("--train-ll", type=bool, default=False, help="Compute train-ll at the end of each epoch")
     PARSER.add_argument("--progressbar", type=bool, default=False, help="Print the progress bar")
@@ -354,7 +348,6 @@ if __name__ == "__main__":
             },
         dataset_name=ARGS.dataset,
         save_path=save_path,
-        tensorboard_dir=ARGS.tensorboard_dir,
         batch_size=ARGS.batch_size,
         lr=ARGS.lr,
         max_num_epochs=ARGS.max_num_epochs,
