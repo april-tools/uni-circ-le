@@ -363,6 +363,7 @@ if __name__ == "__main__":
         verbose=ARGS.progressbar
     )
 
+    print(ARGS.reparam)
     print('train bpd: ', eval_bpd(pc, train_x))
     print('valid bpd: ', eval_bpd(pc, valid_x))
     print('test  bpd: ', eval_bpd(pc, test_x))
