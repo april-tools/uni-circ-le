@@ -18,7 +18,7 @@ from tqdm import tqdm
 # cirkit
 from cirkit.models.functional import integrate
 from cirkit.models.tensorized_circuit import TensorizedPC
-from cirkit.reparams.leaf import ReparamExp, ReparamLeaf
+from cirkit.reparams.leaf import ReparamExp, ReparamIdentity, ReparamLeaf
 from cirkit.layers.input.exp_family.categorical import CategoricalLayer
 from cirkit.layers.input.exp_family.binomial import BinomialLayer
 from cirkit.layers.sum_product import CollapsedCPLayer, TuckerLayer, SharedCPLayer
@@ -46,12 +46,10 @@ LEAF_TYPES = {"cat": CategoricalLayer, "bin": BinomialLayer}
 REPARAM_TYPES = {
     "exp": ReparamExp,
     "relu": ReparamReLU,
-    "softplus": ReparamSoftplus
+    "softplus": ReparamSoftplus,
+    "clamp": ReparamIdentity
     # "exp_temp" will be added at run-time
 }
-
-
-
 
 
 def train_procedure(
@@ -170,8 +168,13 @@ def train_procedure(
             check_validity_params(pc)
 
             # project params in inner layers TODO: remove or edit?
-            # for layer in pc.inner_layers:
-            #    layer.clamp_params()
+            if pc_hypar["REPARAM"] == "clamp":
+                eps = torch.finfo(torch.get_default_dtype()).tiny
+                for layer in pc.inner_layers:
+                    if type(layer) == CollapsedCPLayer:
+                        layer.params_in().data = torch.clamp(layer.params_in(), min=ReparamReLU.eps)
+                    else:
+                        layer.params().data = torch.clamp(layer.params(), min=ReparamReLU.eps)
 
             if verbose:
                 if batch_count % 10 == 0:
