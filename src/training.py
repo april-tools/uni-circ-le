@@ -95,7 +95,9 @@ def train_procedure(
     exp_name = "_".join([pc_hypar["DATA"], pc_hypar["RG"], pc_hypar["PAR"], pc_hypar["LEAF"],
                          f"K_{pc_hypar['K']}", f"KIN_{pc_hypar['K_IN']}", f"lr_{pc_hypar['lr']}"])
 
-    exp_name = f"{exp_name}_{get_date_time_str()}"
+    # model id uses date_time
+    model_id: str = os.path.splitext(os.path.basename(save_path))[0]
+    exp_name = f"{exp_name}_{model_id}"
     print("Experiment name: " + exp_name)
 
     # load data
@@ -104,7 +106,7 @@ def train_procedure(
     optimizer = torch.optim.Adam(pc.parameters(), lr=lr)
 
     # Setup Tensorboard writer
-    writer = SummaryWriter(log_dir=os.path.dirname(save_path))
+    writer = SummaryWriter(log_dir=os.path.join(os.path.dirname(save_path), model_id))
 
     # maybe creates save dir
     if not os.path.exists(os.path.dirname(save_path)):
