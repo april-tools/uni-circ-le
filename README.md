@@ -6,12 +6,13 @@ We want to check the difference in performance with the various re-parameterizat
 The re-parameterizations here used are:
 - `exp`: $\exp(\theta)$
 - `exp-temp`: $\exp(\frac{\theta}{\sqrt{K}}) $
-- `relu`: $\max(0, \theta)$
+- `relu`: $\max(\varepsilon, \theta)$
 - `softplus`: $\log(1 + \exp(\theta))$
+- `clamp`: projected gradient descent (clamping after each optimizer update $\max(\varepsilon, \theta)$)
 
 First, we train the best performing model (fig. 4a of the workshop paper)
 ```bash
-    for repar in exp exp-temp relu softplus
+    for repar in exp exp-temp relu softplus clamp
     do
         python src/training.py --dataset "mnist" --model-dir "out/" \
             --rg "QG" --layer "cp" --leaf "cat" --reparam repar --num-sums 256 \
