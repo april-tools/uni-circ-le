@@ -114,8 +114,8 @@ def train_procedure(
 
     def print_ll(tr_ll: float, val_ll: float, text: str):
         print(text, end="")
-        print(f"\ttrain LL {tr_ll}", end="")
-        print(f"\tvalid LL {val_ll}")
+        print(f"\ttrain LL {tr_ll:.2f}", end="")
+        print(f"\tvalid LL {val_ll:.2f}")
 
 
     """
@@ -170,7 +170,7 @@ def train_procedure(
             objective.backward()
 
             # update with batch ll
-            train_ll += log_likelihood
+            train_ll += log_likelihood.item()
 
             # CHECK
             check_validity_params(pc)
