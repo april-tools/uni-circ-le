@@ -111,8 +111,8 @@ def train_procedure(
         os.makedirs(os.path.dirname(save_path))
 
     # Compute train and validation log-likelihood
-    train_ll = eval_loglikelihood_batched(pc, x_train) / x_train.shape[0] if compute_train_ll else np.NAN
-    valid_ll = eval_loglikelihood_batched(pc, x_valid) / x_valid.shape[0]
+    train_ll = eval_loglikelihood_batched(pc, x_train, device=device) / x_train.shape[0] if compute_train_ll else np.NAN
+    valid_ll = eval_loglikelihood_batched(pc, x_valid, device=device) / x_valid.shape[0]
 
     def print_ll(tr_ll: float, val_ll: float, text: str):
         print(text, end="")
@@ -130,7 +130,7 @@ def train_procedure(
     # # # # # # # # # # # #
     # SETUP Early Stopping
     best_valid_ll = valid_ll
-    # best_test_ll = eval_loglikelihood_batched(pc, x_test) / x_test.shape[0]
+    # best_test_ll = eval_loglikelihood_batched(pc, x_test, device=device) / x_test.shape[0]
     patience_counter = patience
 
     tik_train = time.time()
@@ -184,8 +184,8 @@ def train_procedure(
                     pbar.set_description(f"Epoch {epoch_count} Train LL={objective.item() / batch_size :.2f})")
 
         if not np.isnan(train_ll):
-            train_ll = eval_loglikelihood_batched(pc, x_train) / x_train.shape[0]
-        valid_ll = eval_loglikelihood_batched(pc, x_valid) / x_valid.shape[0]
+            train_ll = eval_loglikelihood_batched(pc, x_train, device=device) / x_train.shape[0]
+        valid_ll = eval_loglikelihood_batched(pc, x_valid, device=device) / x_valid.shape[0]
 
         print_ll(train_ll, valid_ll, f"[After epoch {epoch_count}]")
         if device != "cpu": print('Max allocated GPU: %.2f', torch.cuda.max_memory_allocated() / 1024 ** 3)
@@ -204,7 +204,7 @@ def train_procedure(
 
             # update best_valid_ll
             best_valid_ll = valid_ll
-            # best_test_ll = eval_loglikelihood_batched(pc, x_test) / x_test.shape[0]
+            # best_test_ll = eval_loglikelihood_batched(pc, x_test, device=device) / x_test.shape[0]
             patience_counter = patience
 
         if not np.isnan(train_ll):
@@ -215,7 +215,7 @@ def train_procedure(
     print('Overall training time: %.2f (s)', time.time() - tik_train)
     # reload the model and compute test_ll
     pc = torch.load(save_path)
-    best_test_ll = eval_loglikelihood_batched(pc, x_test) / x_test.shape[0]
+    best_test_ll = eval_loglikelihood_batched(pc, x_test, device=device) / x_test.shape[0]
 
     writer.add_hparams(
         hparam_dict=pc_hypar,
