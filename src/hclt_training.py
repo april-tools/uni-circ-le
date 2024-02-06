@@ -143,6 +143,7 @@ def train_procedure(
     x_train, x_valid, x_test = load_dataset(dataset_name, device=get_pc_device(pc))
     # load optimizer
     optimizer = torch.optim.Adam(pc.parameters(), lr=lr)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=args.t0, T_mult=1, eta_min=args.eta_min)
 
     # Setup Tensorboard writer
     writer = SummaryWriter(log_dir=os.path.join(os.path.dirname(save_path), model_id))
@@ -215,6 +216,8 @@ def train_procedure(
             check_validity_params(pc)
             # UPDATE
             optimizer.step()
+            scheduler.step()
+
             # CHECK AGAIN
             check_validity_params(pc)
 
@@ -305,6 +308,8 @@ if __name__ == "__main__":
     parser.add_argument("--batch-size",     type=int,   default=128,            help="batch size")
     parser.add_argument("--train-ll",       type=bool,  default=False,          help="Compute train-ll at the end of each epoch")
     parser.add_argument("--progressbar",    type=bool,  default=False,          help="Print the progress bar")
+    parser.add_argument('-t0',              type=int,   default=1,              help='sched CAWR t0, 1 for fixed lr ')
+    parser.add_argument('-eta_min',         type=float, default=1e-4,           help='sched CAWR eta min')
     args = parser.parse_args()
     print(args)
     init_random_seeds(seed=args.seed)
