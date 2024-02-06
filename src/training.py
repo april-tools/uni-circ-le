@@ -18,7 +18,7 @@ from tqdm import tqdm
 # cirkit
 from cirkit.models.functional import integrate
 from cirkit.models.tensorized_circuit import TensorizedPC
-from cirkit.reparams.leaf import ReparamExp, ReparamIdentity, ReparamLeaf
+from cirkit.reparams.leaf import ReparamExp, ReparamIdentity, ReparamLeaf, ReparamSoftmax
 from cirkit.layers.input.exp_family.categorical import CategoricalLayer
 from cirkit.layers.input.exp_family.binomial import BinomialLayer
 from cirkit.layers.sum_product import CollapsedCPLayer, TuckerLayer, SharedCPLayer
@@ -47,8 +47,10 @@ REPARAM_TYPES = {
     "exp": ReparamExp,
     "relu": ReparamReLU,
     "softplus": ReparamSoftplus,
-    "clamp": ReparamIdentity
+    "clamp": ReparamIdentity,
+    "softmax": ReparamSoftmax
     # "exp_temp" will be added at run-time
+    # "softmax_temp" will be added at run-time
 }
 
 
@@ -306,7 +308,16 @@ if __name__ == "__main__":
     class ReparamExpTemp(ReparamLeaf):
         def forward(self) -> torch.Tensor:
             return torch.exp(self.param / np.sqrt(ARGS.num_sums))
+
+    class ReparamSoftmaxTemp(ReparamLeaf):
+        def forward(self) -> torch.Tensor:
+            param = self.param if self.log_mask is None else self.param + self.log_mask
+            param = self._unflatten_dims(torch.softmax(self._flatten_dims(param) / np.sqrt(ARGS.num_sums),
+                                                       dim=self.dims[0]))
+            return torch.nan_to_num(param, nan=1)
+
     REPARAM_TYPES["exp_temp"] = ReparamExpTemp
+    REPARAM_TYPES["softmax_temp"] = ReparamSoftmaxTemp
 
     # Create probabilistic circuit
     pc = TensorizedPC.from_region_graph(
