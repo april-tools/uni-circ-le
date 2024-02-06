@@ -359,6 +359,6 @@ if __name__ == "__main__":
     )
 
     print(args.reparam)
-    print('train bpd: ', eval_bpd(pc, train_x))
-    print('valid bpd: ', eval_bpd(pc, valid_x))
-    print('test  bpd: ', eval_bpd(pc, test_x))
+    print('train bpd: ', eval_bpd(pc, train_x, device=device))
+    print('valid bpd: ', eval_bpd(pc, valid_x, device=device))
+    print('test  bpd: ', eval_bpd(pc, test_x, device=device))

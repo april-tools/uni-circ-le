@@ -22,7 +22,7 @@ def log_likelihoods(outputs, labels=None):
 
 
 def eval_loglikelihood_batched(
-    pc: TensorizedPC, x: torch.Tensor, labels=None, batch_size=100
+    pc: TensorizedPC, x: torch.Tensor, labels=None, batch_size=100, device: str = 'cpu'
 ):
     """Computes log-likelihood in batched way."""
     with torch.no_grad():
@@ -33,9 +33,9 @@ def eval_loglikelihood_batched(
         ).split(batch_size)
         ll_total = 0.0
         for batch_count, idx in enumerate(idx_batches):
-            batch_x = x[idx, :].unsqueeze(dim=-1)
+            batch_x = x[idx, :].unsqueeze(dim=-1).to(device)
             if labels is not None:
-                batch_labels = labels[idx]
+                batch_labels = labels[idx].to(device)
             else:
                 batch_labels = None
 
@@ -66,16 +66,12 @@ def get_outputs_batched(pc: TensorizedPC, x: torch.Tensor, batch_size=100):
         return output
 
 
-def eval_bpd(pc: TensorizedPC, x: torch.Tensor) -> float:
+def eval_bpd(pc: TensorizedPC, x: torch.Tensor, device: str = 'cpu') -> float:
     """
     Note: if ll is None then is computed, otherwise it is assumed that
     it has already been divided by the number of examples
-    :param einet:
-    :param x:
-    :param ll:
-    :return:
     """
-    ll: float = eval_loglikelihood_batched(pc, x) / x.shape[0]
+    ll: float = eval_loglikelihood_batched(pc, x, device=device) / x.shape[0]
     return -ll / (np.log(2) * pc.num_vars)  # TODO: check this
 
 
