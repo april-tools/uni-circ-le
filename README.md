@@ -8,7 +8,7 @@ The re-parameterizations here used are:
 - `exp-temp`: $\exp(\frac{\theta}{\sqrt{K}}) $
 - `relu`: $\max(\varepsilon, \theta)$
 - `softplus`: $\log(1 + \exp(\theta))$
-- `clamp`: projected gradient descent (clamping after each optimizer update $\max(\varepsilon, \theta)$)
+- `clamp`: projected gradient descent (clamping after each optimizer update $\max(\varepsilon, \theta)$ )
 
 First, we train the best performing model (fig. 4a of the workshop paper)
 ```bash
