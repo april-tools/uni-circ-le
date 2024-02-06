@@ -152,7 +152,7 @@ def train_procedure(
             pbar = enumerate(idx_batches)
 
         for batch_count, idx in pbar:
-            batch_x = x_train[idx, :].unsqueeze(dim=-1)
+            batch_x = x_train[idx, :].unsqueeze(dim=-1).to(device)
 
             if batch_size == 1:
                 batch_x = batch_x.reshape(1, -1)
