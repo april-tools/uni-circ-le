@@ -62,12 +62,12 @@ def train_procedure(
     pc_hypar: dict,
     dataset_name: str,
     save_path: str,
-    batch_size=128,
-    lr=0.01,
-    max_num_epochs=200,
-    patience=10,
-    verbose=True,
-    compute_train_ll=False
+    batch_size: int = 128,
+    lr: float = 0.01,
+    max_num_epochs: int = 200,
+    patience: int = 10,
+    verbose: bool = True,
+    compute_train_ll: bool = False
 ):
     """Train a TensorizedPC using gradient descent.
 
@@ -88,7 +88,7 @@ def train_procedure(
         patience (int, optional): _description_. Defaults to 3.
         verbose (bool, optional): _description_. Defaults to True.
     """
-    pc_pf = integrate(pc)
+    pc_pf: TensorizedPC = integrate(pc)
     torch.set_default_tensor_type("torch.FloatTensor")
 
     # make experiment name string
@@ -110,15 +110,16 @@ def train_procedure(
     if not os.path.exists(os.path.dirname(save_path)):
         os.makedirs(os.path.dirname(save_path))
 
-    # Compute train and validation log-likelihood
-    train_ll = eval_loglikelihood_batched(pc, x_train, device=device) / x_train.shape[0] if compute_train_ll else np.NAN
-    valid_ll = eval_loglikelihood_batched(pc, x_valid, device=device) / x_valid.shape[0]
-
     def print_ll(tr_ll: float, val_ll: float, text: str):
         print(text, end="")
-        if not np.isnan(tr_ll):
-            print(f"\ttrain LL {tr_ll}", end="")
+        print(f"\ttrain LL {tr_ll}", end="")
         print(f"\tvalid LL {val_ll}")
+
+
+    """
+    # Compute train and validation log-likelihood
+     train_ll = eval_loglikelihood_batched(pc, x_train, device=device) / x_train.shape[0] if compute_train_ll else np.NAN
+     valid_ll = eval_loglikelihood_batched(pc, x_valid, device=device) / x_valid.shape[0]
 
     print_ll(train_ll, valid_ll, "[Before Learning]")
 
@@ -126,10 +127,11 @@ def train_procedure(
     if not np.isnan(train_ll):
         writer.add_scalar("train_ll", train_ll, 0)
     writer.add_scalar("valid_ll", valid_ll, 0)
+    """
 
     # # # # # # # # # # # #
     # SETUP Early Stopping
-    best_valid_ll = valid_ll
+    best_valid_ll = eval_loglikelihood_batched(pc, x_valid, device=device) / x_valid.shape[0]
     # best_test_ll = eval_loglikelihood_batched(pc, x_test, device=device) / x_test.shape[0]
     patience_counter = patience
 
@@ -153,6 +155,7 @@ def train_procedure(
         else:
             pbar = enumerate(idx_batches)
 
+        train_ll = 0
         for batch_count, idx in pbar:
             batch_x = x_train[idx, :].unsqueeze(dim=-1).to(device)
 
@@ -163,6 +166,9 @@ def train_procedure(
             objective = -log_likelihood
             optimizer.zero_grad()
             objective.backward()
+
+            # update with batch ll
+            train_ll += log_likelihood
 
             # CHECK
             check_validity_params(pc)
@@ -183,8 +189,7 @@ def train_procedure(
                 if batch_count % 10 == 0:
                     pbar.set_description(f"Epoch {epoch_count} Train LL={objective.item() / batch_size :.2f})")
 
-        if not np.isnan(train_ll):
-            train_ll = eval_loglikelihood_batched(pc, x_train, device=device) / x_train.shape[0]
+        train_ll = train_ll / x_train.shape[0]
         valid_ll = eval_loglikelihood_batched(pc, x_valid, device=device) / x_valid.shape[0]
 
         print_ll(train_ll, valid_ll, f"[After epoch {epoch_count}]")
@@ -207,15 +212,20 @@ def train_procedure(
             # best_test_ll = eval_loglikelihood_batched(pc, x_test, device=device) / x_test.shape[0]
             patience_counter = patience
 
-        if not np.isnan(train_ll):
-            writer.add_scalar("train_ll", train_ll, epoch_count)
+        writer.add_scalar("train_ll", train_ll, epoch_count)
         writer.add_scalar("valid_ll", valid_ll, epoch_count)
         writer.flush()
 
     print('Overall training time: %.2f (s)', time.time() - tik_train)
     # reload the model and compute test_ll
     pc = torch.load(save_path)
+    best_train_ll = eval_loglikelihood_batched(pc, x_train, device=device) / x_train.shape[0]
     best_test_ll = eval_loglikelihood_batched(pc, x_test, device=device) / x_test.shape[0]
+
+    print(args.reparam)
+    print('train bpd: ', bpd_from_ll(pc, best_train_ll))
+    print('valid bpd: ', bpd_from_ll(pc, best_valid_ll))
+    print('test  bpd: ', bpd_from_ll(pc, best_test_ll))
 
     writer.add_hparams(
         hparam_dict=pc_hypar,
@@ -234,6 +244,7 @@ def train_procedure(
         },
     )
     writer.close()
+
 
 
 if __name__ == "__main__":
@@ -357,8 +368,3 @@ if __name__ == "__main__":
         compute_train_ll=args.train_ll,
         verbose=args.progressbar
     )
-
-    print(args.reparam)
-    print('train bpd: ', eval_bpd(pc, train_x, device=device))
-    print('valid bpd: ', eval_bpd(pc, valid_x, device=device))
-    print('test  bpd: ', eval_bpd(pc, test_x, device=device))
