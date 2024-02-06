@@ -64,6 +64,7 @@ def train_procedure(
     save_path: str,
     batch_size: int = 128,
     lr: float = 0.01,
+    reg_lambda: float = 0,
     max_num_epochs: int = 200,
     patience: int = 10,
     verbose: bool = True,
@@ -103,7 +104,11 @@ def train_procedure(
     # load data
     x_train, x_valid, x_test = load_dataset(dataset_name, device=get_pc_device(pc))
     # load optimizer
-    optimizer = torch.optim.Adam(pc.parameters(), lr=lr)
+    params_no_decay = [p for p in pc.input_layer.parameters()]
+    params_decay = [p for layer in pc.inner_layers for p in layer.parameters()]
+    optimizer = torch.optim.Adam([
+    {'params': params_no_decay},
+    {'params': params_decay, 'weight_decay': reg_lambda}], lr=lr)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=args.t0, T_mult=1, eta_min=args.eta_min)
 
     # Setup Tensorboard writer
@@ -165,8 +170,13 @@ def train_procedure(
             if batch_size == 1:
                 batch_x = batch_x.reshape(1, -1)
 
+            # compute ll
             log_likelihood = (pc(batch_x) - pc_pf(batch_x)).sum(0)
-            objective = -log_likelihood
+            # compute regularizer
+            regularizer = torch.sum(torch.stack([torch.sum(torch.square(param))
+                                     for layer in pc.inner_layers for param in layer.parameters()]))
+
+            objective = -log_likelihood + reg_lambda*regularizer
             optimizer.zero_grad()
             objective.backward()
 
@@ -260,6 +270,7 @@ if __name__ == "__main__":
     parser.add_argument("--dataset",        type=str,   default="mnist",        help="Dataset for the experiment")
     parser.add_argument("--model-dir",      type=str,   default="out",          help="Base dir for saving the model")
     parser.add_argument("--lr",             type=float, default=0.1,            help="Path of the model to be loaded")
+    parser.add_argument("--regularizer",    type=float, default=0,              help="L2-regularization coefficient")
     parser.add_argument("--num-sums",       type=int,   default=128,            help="Num sums")
     parser.add_argument("--num-input",      type=int,   default=None,           help="Num input distributions per leaf, if None then is equal to num-sums",)
     parser.add_argument( "--rg",            type=str,   default="quad_tree",    help="Region graph: 'PD', 'QG', or 'QT'")
@@ -370,6 +381,7 @@ if __name__ == "__main__":
         save_path=save_path,
         batch_size=args.batch_size,
         lr=args.lr,
+        reg_lambda=args.regularizer,
         max_num_epochs=args.max_num_epochs,
         patience=10,
         compute_train_ll=args.train_ll,
