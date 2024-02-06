@@ -234,7 +234,7 @@ def train_procedure(
         valid_ll = eval_loglikelihood_batched(pc, x_valid, device=device) / x_valid.shape[0]
 
         print_ll(train_ll, valid_ll, f"[After epoch {epoch_count}]")
-        if device != "cpu": print('Max allocated GPU: %.2f' % torch.cuda.max_memory_allocated() / 1024 ** 3)
+        if device != "cpu": print('Max allocated GPU: %.2f' % (torch.cuda.max_memory_allocated() / 1024 ** 3))
 
         # Not improved
         if valid_ll <= best_valid_ll:
