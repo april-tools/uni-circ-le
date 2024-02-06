@@ -14,6 +14,8 @@ from torch.utils.tensorboard import SummaryWriter
 from utils import *
 from measures import *
 from tqdm import tqdm
+import time
+
 
 # cirkit
 from cirkit.models.functional import integrate
@@ -129,7 +131,7 @@ def train_procedure(
     # best_test_ll = eval_loglikelihood_batched(pc, x_test) / x_test.shape[0]
     patience_counter = patience
 
-
+    tik_train = time.time()
     for epoch_count in range(1, max_num_epochs + 1):
 
         # # # # # #
@@ -185,6 +187,7 @@ def train_procedure(
         valid_ll = eval_loglikelihood_batched(pc, x_valid) / x_valid.shape[0]
 
         print_ll(train_ll, valid_ll, f"[After epoch {epoch_count}]")
+        if device != "cpu": print('Max allocated GPU: %.2f', torch.cuda.max_memory_allocated() / 1024 ** 3)
 
         # Not improved
         if valid_ll <= best_valid_ll:
@@ -208,19 +211,20 @@ def train_procedure(
         writer.add_scalar("valid_ll", valid_ll, epoch_count)
         writer.flush()
 
+    print('Overall training time: %.2f (s)', time.time() - tik_train)
     # reload the model and compute test_ll
     pc = torch.load(save_path)
     best_test_ll = eval_loglikelihood_batched(pc, x_test) / x_test.shape[0]
 
     writer.add_hparams(
         hparam_dict=pc_hypar,
-        metric_dict = {
+        metric_dict={
             "Best/Valid/ll": float(best_valid_ll),
             "Best/Valid/bpd": float(bpd_from_ll(pc, best_valid_ll)),
             "Best/Test/ll": float(best_test_ll),
             "Best/Test/bpd": float(bpd_from_ll(pc, best_test_ll)),
         },
-        hparam_domain_discrete = {
+        hparam_domain_discrete={
             "DATA": ["mnist", "fashion_mnist", "celeba"],
             "RG": ["QG", "PD", "QT"],
             "PAR": ["cp", "cpshared", "tucker"],
@@ -232,107 +236,89 @@ def train_procedure(
 
 
 if __name__ == "__main__":
-    PARSER = argparse.ArgumentParser("MNIST experiments.")
-    PARSER.add_argument("--seed", type=int, default=42, help="Random seed")
-    PARSER.add_argument(
-        "--gpu", type=int, default=None, help="Device on which run the benchmark"
-    )
-    PARSER.add_argument(
-        "--dataset", type=str, default="mnist", help="Dataset for the experiment"
-    )
-    PARSER.add_argument(
-        "--model-dir", type=str, default="out", help="Base dir for saving the model"
-    )
-    PARSER.add_argument(
-        "--lr", type=float, default=0.1, help="Path of the model to be loaded"
-    )
-    PARSER.add_argument("--num-sums", type=int, default=128, help="Num sums")
-    PARSER.add_argument(
-        "--num-input",
-        type=int,
-        default=None,
-        help="Num input distributions per leaf, if None then is equal to num-sums",
-    )
-    PARSER.add_argument(
-        "--rg", default="quad_tree", help="Region graph: either 'PD', 'QG', or 'QT'"
-    )
-    PARSER.add_argument(
-        "--layer", type=str, help="Layer type: either 'tucker', 'cp' or 'cp-shared'"
-    )
-    PARSER.add_argument("--leaf", type=str, help="Leaf type: either 'cat' or 'bin'")
-    PARSER.add_argument("--reparam", type=str, default="exp", help="Either 'exp', 'relu', or 'exp_temp'")
-    PARSER.add_argument("--max-num-epochs", type=int, default=200, help="Max num epoch")
-    PARSER.add_argument(
-        "--batch-size", type=int, default=128, help="Batch size for optimization"
-    )
-    PARSER.add_argument("--train-ll", type=bool, default=False, help="Compute train-ll at the end of each epoch")
-    PARSER.add_argument("--progressbar", type=bool, default=False, help="Print the progress bar")
-    ARGS = PARSER.parse_args()
 
-    init_random_seeds(seed=ARGS.seed)
+    parser = argparse.ArgumentParser("MNIST experiments.")
+    parser.add_argument("--seed",           type=int,   default=42,             help="Random seed")
+    parser.add_argument("--gpu",            type=int,   default=None,           help="Device on which run the benchmark")
+    parser.add_argument("--dataset",        type=str,   default="mnist",        help="Dataset for the experiment")
+    parser.add_argument("--model-dir",      type=str,   default="out",          help="Base dir for saving the model")
+    parser.add_argument("--lr",             type=float, default=0.1,            help="Path of the model to be loaded")
+    parser.add_argument("--num-sums",       type=int,   default=128,            help="Num sums")
+    parser.add_argument("--num-input",      type=int,   default=None,           help="Num input distributions per leaf, if None then is equal to num-sums",)
+    parser.add_argument( "--rg",            type=str,   default="quad_tree",    help="Region graph: 'PD', 'QG', or 'QT'")
+    parser.add_argument("--layer",          type=str,                           help="Layer type: 'tucker', 'cp' or 'cp-shared'")
+    parser.add_argument("--leaf",           type=str,                           help="Leaf type: either 'cat' or 'bin'")
+    parser.add_argument("--reparam",        type=str,   default="exp",          help="Either 'exp', 'relu', or 'exp_temp'")
+    parser.add_argument("--max-num-epochs", type=int,   default=200,            help="Max num epoch")
+    parser.add_argument("--batch-size",     type=int,   default=128,            help="batch size")
+    parser.add_argument("--train-ll",       type=bool,  default=False,          help="Compute train-ll at the end of each epoch")
+    parser.add_argument("--progressbar",    type=bool,  default=False,          help="Print the progress bar")
+    args = parser.parse_args()
+    print(args)
+    init_random_seeds(seed=args.seed)
 
-    DEVICE = (
-        f"cuda:{ARGS.gpu}"
-        if torch.cuda.is_available() and ARGS.gpu is not None
+    device = (
+        f"cuda:{args.gpu}"
+        if torch.cuda.is_available() and args.gpu is not None
         else "cpu"
     )
-    assert ARGS.layer in LAYER_TYPES
-    assert ARGS.rg in RG_TYPES
-    assert ARGS.leaf in LEAF_TYPES
-    if ARGS.num_input is None:
-        ARGS.num_input = ARGS.num_sums
+    assert args.layer in LAYER_TYPES
+    assert args.rg in RG_TYPES
+    assert args.leaf in LEAF_TYPES
+    if args.num_input is None:
+        args.num_input = args.num_sums
 
-    train_x, valid_x, test_x = load_dataset(ARGS.dataset, device=DEVICE)
+    train_x, valid_x, test_x = load_dataset(args.dataset, device="cpu")
 
     # Setup region graph
     rg: RegionGraph
-    if ARGS.rg == "QG":  # TODO: generalize width and height
+    if args.rg == "QG":  # TODO: generalize width and height
         rg = QuadTree(width=28, height=28, struct_decomp=False)
-    elif ARGS.rg == "QT":
+    elif args.rg == "QT":
         rg = QuadTree(width=28, height=28, struct_decomp=True)
-    elif ARGS.rg == "PD":
+    elif args.rg == "PD":
         rg = PoonDomingos(shape=(28, 28), delta=4)
     else:
         raise AssertionError("Invalid RG")
 
     # Setup leaves setting
     efamily_kwargs: dict
-    if ARGS.leaf == "cat":
+    if args.leaf == "cat":
         efamily_kwargs = {"num_categories": 256}
-    elif ARGS.leaf == "bin":
+    elif args.leaf == "bin":
         efamily_kwargs = {"n": 256}
 
     # setup reparam
     class ReparamExpTemp(ReparamLeaf):
         def forward(self) -> torch.Tensor:
-            return torch.exp(self.param / np.sqrt(ARGS.num_sums))
+            return torch.exp(self.param / np.sqrt(args.num_sums))
     REPARAM_TYPES["exp_temp"] = ReparamExpTemp
 
     # Create probabilistic circuit
     pc = TensorizedPC.from_region_graph(
         rg=rg,
-        layer_cls=LAYER_TYPES[ARGS.layer],
-        efamily_cls=LEAF_TYPES[ARGS.leaf],
+        layer_cls=LAYER_TYPES[args.layer],
+        efamily_cls=LEAF_TYPES[args.leaf],
         efamily_kwargs=efamily_kwargs,
-        num_inner_units=ARGS.num_sums,
-        num_input_units=ARGS.num_input,
-        reparam=REPARAM_TYPES[ARGS.reparam],
+        num_inner_units=args.num_sums,
+        num_input_units=args.num_input,
+        reparam=REPARAM_TYPES[args.reparam],
     )
-    pc.to(DEVICE)
+    pc.to(device)
     print(f"Num of params: {num_of_params(pc)}")
-    model_name = ARGS.layer
+    model_name = args.layer
 
     # compose model path
     # e.g. out/mnist/
     save_path = os.path.join(
-        ARGS.model_dir,
-        ARGS.dataset,
-        ARGS.rg,
-        ARGS.layer,
-        ARGS.leaf,
-        ARGS.reparam,
-        str(ARGS.num_sums),
-        str(ARGS.lr),
+        args.model_dir,
+        args.dataset,
+        args.rg,
+        args.layer,
+        args.leaf,
+        args.reparam,
+        str(args.num_sums),
+        str(args.lr),
         get_date_time_str() + ".mdl",
     )
 
@@ -340,29 +326,29 @@ if __name__ == "__main__":
     train_procedure(
         pc=pc,
         pc_hypar={
-            "RG": ARGS.rg,
-            "PAR": ARGS.layer,
-            "LEAF": ARGS.leaf,
-            "REPARAM": ARGS.reparam,
-            "K": ARGS.num_sums,
-            "K_IN": ARGS.num_input,
-            "DATA": ARGS.dataset,
-            "lr": ARGS.lr,
+            "RG": args.rg,
+            "PAR": args.layer,
+            "LEAF": args.leaf,
+            "REPARAM": args.reparam,
+            "K": args.num_sums,
+            "K_IN": args.num_input,
+            "DATA": args.dataset,
+            "lr": args.lr,
             "optimizer": "Adam",
-            "batch_size": ARGS.batch_size,
+            "batch_size": args.batch_size,
             "num_par": num_of_params(pc)
             },
-        dataset_name=ARGS.dataset,
+        dataset_name=args.dataset,
         save_path=save_path,
-        batch_size=ARGS.batch_size,
-        lr=ARGS.lr,
-        max_num_epochs=ARGS.max_num_epochs,
+        batch_size=args.batch_size,
+        lr=args.lr,
+        max_num_epochs=args.max_num_epochs,
         patience=10,
-        compute_train_ll=ARGS.train_ll,
-        verbose=ARGS.progressbar
+        compute_train_ll=args.train_ll,
+        verbose=args.progressbar
     )
 
-    print(ARGS.reparam)
+    print(args.reparam)
     print('train bpd: ', eval_bpd(pc, train_x))
     print('valid bpd: ', eval_bpd(pc, valid_x))
     print('test  bpd: ', eval_bpd(pc, test_x))
