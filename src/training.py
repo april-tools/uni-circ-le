@@ -173,12 +173,11 @@ def train_procedure(
 
             # project params in inner layers TODO: remove or edit?
             if pc_hypar["REPARAM"] == "clamp":
-                eps = torch.finfo(torch.get_default_dtype()).tiny
                 for layer in pc.inner_layers:
                     if type(layer) == CollapsedCPLayer:
-                        layer.params_in().data = torch.clamp(layer.params_in(), min=ReparamReLU.eps)
+                        layer.params_in().data = torch.clamp(layer.params_in(), min=np.sqrt(ReparamReLU.eps))
                     else:
-                        layer.params().data = torch.clamp(layer.params(), min=ReparamReLU.eps)
+                        layer.params().data = torch.clamp(layer.params(), min=np.sqrt(ReparamReLU.eps))
 
             if verbose:
                 if batch_count % 10 == 0:
@@ -298,7 +297,7 @@ if __name__ == "__main__":
     class ReparamSoftmaxTemp(ReparamLeaf):
         def forward(self) -> torch.Tensor:
             param = self.param if self.log_mask is None else self.param + self.log_mask
-            param = self._unflatten_dims(torch.softmax(self._flatten_dims(param) / np.sqrt(ARGS.num_sums),
+            param = self._unflatten_dims(torch.softmax(self._flatten_dims(param) / np.sqrt(args.num_sums),
                                                        dim=self.dims[0]))
             return torch.nan_to_num(param, nan=1)
 
