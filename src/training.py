@@ -1,59 +1,34 @@
-import os
 import sys
-import argparse
-from typing import Literal
-import torch
+import os
+sys.path.append(os.path.join(os.getcwd(), "cirkit"))
+sys.path.append(os.path.join(os.getcwd(), "src"))
 
 import functools
 print = functools.partial(print, flush=True)
 
-sys.path.append(os.path.join(os.getcwd(), "cirkit"))
-sys.path.append(os.path.join(os.getcwd(), "src"))
-
 from torch.utils.tensorboard import SummaryWriter
-from utils import *
-from measures import *
+from typing import Optional
 from tqdm import tqdm
+import numpy as np
+import argparse
+import torch
 import time
+
+from reparam import ReparamExpTemp, ReparamSoftmaxTemp, ReparamReLU, ReparamSoftplus
+from utils import load_dataset, check_validity_params, init_random_seeds, get_date_time_str, num_of_params
+from measures import eval_loglikelihood_batched, bpd_from_ll
 
 
 # cirkit
-from cirkit.models.functional import integrate
 from cirkit.models.tensorized_circuit import TensorizedPC
+from cirkit.models.functional import integrate
 from cirkit.reparams.leaf import ReparamExp, ReparamIdentity, ReparamLeaf, ReparamSoftmax
 from cirkit.layers.input.exp_family.categorical import CategoricalLayer
 from cirkit.layers.input.exp_family.binomial import BinomialLayer
 from cirkit.layers.sum_product import CollapsedCPLayer, TuckerLayer, SharedCPLayer
-from cirkit.models.tensorized_circuit import TensorizedPC
 from cirkit.region_graph import RegionGraph
 from cirkit.region_graph.poon_domingos import PoonDomingos
 from cirkit.region_graph.quad_tree import QuadTree
-
-class ReparamReLU(ReparamLeaf):
-    eps = torch.finfo(torch.get_default_dtype()).tiny
-    def forward(self) -> torch.Tensor:
-        return torch.clamp(self.param, min=ReparamReLU.eps)
-
-class ReparamSoftplus(ReparamLeaf):
-    def forward(self) -> torch.Tensor:
-        return torch.nn.functional.softplus(self.param)
-
-LAYER_TYPES = {
-    "tucker": TuckerLayer,
-    "cp": CollapsedCPLayer,
-    "cp-shared": SharedCPLayer,
-}
-RG_TYPES = {"QG", "QT", "PD"}
-LEAF_TYPES = {"cat": CategoricalLayer, "bin": BinomialLayer}
-REPARAM_TYPES = {
-    "exp": ReparamExp,
-    "relu": ReparamReLU,
-    "softplus": ReparamSoftplus,
-    "clamp": ReparamIdentity,
-    "softmax": ReparamSoftmax
-    # "exp_temp" will be added at run-time
-    # "softmax_temp" will be added at run-time
-}
 
 
 def train_procedure(
@@ -62,13 +37,13 @@ def train_procedure(
     pc_hypar: dict,
     dataset_name: str,
     save_path: str,
-    batch_size: int = 128,
-    lr: float = 0.01,
-    weight_decay: float = 0,
-    max_num_epochs: int = 200,
-    patience: int = 10,
-    verbose: bool = True,
-    compute_train_ll: bool = False
+    batch_size: Optional[int] = 128,
+    lr: Optional[float] = 0.01,
+    weight_decay: Optional[float] = 0,
+    max_num_epochs: Optional[int] = 200,
+    patience: Optional[int] = 10,
+    verbose: Optional[bool] = True,
+    compute_train_ll: Optional[bool] = False
 ):
     """Train a TensorizedPC using gradient descent.
 
@@ -89,11 +64,12 @@ def train_procedure(
         patience (int, optional): _description_. Defaults to 3.
         verbose (bool, optional): _description_. Defaults to True.
     """
+    sqrt_eps = np.sqrt(torch.finfo(torch.get_default_dtype()).tiny)  # todo find better place
     pc_pf: TensorizedPC = integrate(pc)
     torch.set_default_tensor_type("torch.FloatTensor")
 
     # make experiment name string
-    exp_name = "_".join([pc_hypar["DATA"], pc_hypar["RG"], pc_hypar["PAR"], pc_hypar["LEAF"],
+    exp_name = "_".join([pc_hypar["DATA"], pc_hypar["RG"], pc_hypar["layer"], pc_hypar["LEAF"],
                          f"K_{pc_hypar['K']}", f"KIN_{pc_hypar['K_IN']}", f"lr_{pc_hypar['lr']}"])
 
     # model id uses date_time
@@ -102,13 +78,11 @@ def train_procedure(
     print("Experiment name: " + exp_name)
 
     # load data
-    x_train, x_valid, x_test = load_dataset(dataset_name, device=get_pc_device(pc))
-    # load optimizer
-    params_no_decay = [p for p in pc.input_layer.parameters()]
-    params_decay = [p for layer in pc.inner_layers for p in layer.parameters()]
+    x_train, x_valid, x_test = load_dataset(dataset_name, device="cpu")
+
     optimizer = torch.optim.Adam([
-    {'params': params_no_decay},
-    {'params': params_decay, 'weight_decay': weight_decay}], lr=lr)
+        {'params': [p for p in pc.input_layer.parameters()]},
+        {'params': [p for layer in pc.inner_layers for p in layer.parameters()], 'weight_decay': weight_decay}], lr=lr)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=args.t0, T_mult=1, eta_min=args.eta_min)
 
     # Setup Tensorboard writer
@@ -171,14 +145,10 @@ def train_procedure(
                 batch_x = batch_x.reshape(1, -1)
 
             # compute ll
-            log_likelihood = (pc(batch_x) - pc_pf(batch_x)).sum(0)
-            # compute regularizer
-            regularizer = torch.sum(torch.stack([torch.sum(torch.square(param))
-                                     for layer in pc.inner_layers for param in layer.parameters()]))
+            log_likelihood = (pc(batch_x) - pc_pf(batch_x)).sum(dim=0)
 
-            objective = -log_likelihood + weight_decay*regularizer
             optimizer.zero_grad()
-            objective.backward()
+            (-log_likelihood).backward()
 
             # update with batch ll
             train_ll += log_likelihood.item()
@@ -196,13 +166,13 @@ def train_procedure(
             if pc_hypar["REPARAM"] == "clamp":
                 for layer in pc.inner_layers:
                     if type(layer) == CollapsedCPLayer:
-                        layer.params_in().data = torch.clamp(layer.params_in(), min=np.sqrt(ReparamReLU.eps))
+                        layer.params_in().data = torch.clamp(layer.params_in(), min=sqrt_eps)
                     else:
-                        layer.params().data = torch.clamp(layer.params(), min=np.sqrt(ReparamReLU.eps))
+                        layer.params().data = torch.clamp(layer.params(), min=sqrt_eps)
 
             if verbose:
                 if batch_count % 10 == 0:
-                    pbar.set_description(f"Epoch {epoch_count} Train LL={objective.item() / batch_size :.2f})")
+                    pbar.set_description(f"Epoch {epoch_count} Train LL={log_likelihood.item() / batch_size :.2f})")
 
         train_ll = train_ll / x_train.shape[0]
         valid_ll = eval_loglikelihood_batched(pc, x_valid, device=device) / x_valid.shape[0]
@@ -253,7 +223,7 @@ def train_procedure(
         hparam_domain_discrete={
             "DATA": ["mnist", "fashion_mnist", "celeba"],
             "RG": ["QG", "PD", "QT"],
-            "PAR": ["cp", "cpshared", "tucker"],
+            "layer": ["cp", "cpshared", "tucker"],
             "LEAF": ["bin", "cat"],
             "REPARAM": ["softplus", "exp", "exp_temp", "relu"]
         },
@@ -261,55 +231,59 @@ def train_procedure(
     writer.close()
 
 
-
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser("MNIST experiments.")
-    parser.add_argument("--seed",           type=int,   default=42,             help="Random seed")
-    parser.add_argument("--gpu",            type=int,   default=None,           help="Device on which run the benchmark")
-    parser.add_argument("--dataset",        type=str,   default="mnist",        help="Dataset for the experiment")
-    parser.add_argument("--model-dir",      type=str,   default="out",          help="Base dir for saving the model")
-    parser.add_argument("--lr",             type=float, default=0.1,            help="Path of the model to be loaded")
-    parser.add_argument("--weight-decay",   type=float, default=0,              help="Weight decay coefficient")
-    parser.add_argument("--num-sums",       type=int,   default=128,            help="Num sums")
-    parser.add_argument("--num-input",      type=int,   default=None,           help="Num input distributions per leaf, if None then is equal to num-sums",)
-    parser.add_argument( "--rg",            type=str,   default="quad_tree",    help="Region graph: 'PD', 'QG', or 'QT'")
-    parser.add_argument("--layer",          type=str,                           help="Layer type: 'tucker', 'cp' or 'cp-shared'")
-    parser.add_argument("--leaf",           type=str,                           help="Leaf type: either 'cat' or 'bin'")
-    parser.add_argument("--reparam",        type=str,   default="exp",          help="Either 'exp', 'relu', or 'exp_temp'")
-    parser.add_argument("--max-num-epochs", type=int,   default=200,            help="Max num epoch")
-    parser.add_argument("--batch-size",     type=int,   default=128,            help="batch size")
-    parser.add_argument("--train-ll",       type=bool,  default=False,          help="Compute train-ll at the end of each epoch")
-    parser.add_argument("--progressbar",    type=bool,  default=False,          help="Print the progress bar")
-    parser.add_argument('-t0',              type=int,   default=1,              help='sched CAWR t0, 1 for fixed lr ')
-    parser.add_argument('-eta_min',         type=float, default=1e-4,           help='sched CAWR eta min')
+    parser.add_argument("--seed",           type=int,   default=42,         help="Random seed")
+    parser.add_argument("--gpu",            type=int,   default=None,       help="Device on which run the benchmark")
+    parser.add_argument("--dataset",        type=str,   default="mnist",    help="Dataset for the experiment")
+    parser.add_argument("--model-dir",      type=str,   default="out",      help="Base dir for saving the model")
+    parser.add_argument("--lr",             type=float, default=0.1,        help="Path of the model to be loaded")
+    parser.add_argument("--patience",       type=int,   default=5,          help='patience for early stopping')
+    parser.add_argument("--weight-decay",   type=float, default=0,          help="Weight decay coefficient")
+    parser.add_argument("--num-sums",       type=int,   default=128,        help="Num sums")
+    parser.add_argument("--num-input",      type=int,   default=None,       help="Num input distributions per leaf, if None then is equal to num-sums",)
+    parser.add_argument("--rg",             type=str,   default="QT",       help="Region graph: 'PD', 'QG', or 'QT'")
+    parser.add_argument("--layer",          type=str,                       help="Layer type: 'tucker', 'cp' or 'cp-shared'")
+    parser.add_argument("--leaf",           type=str,                       help="Leaf type: either 'cat' or 'bin'")
+    parser.add_argument("--reparam",        type=str,   default="exp",      help="Either 'exp', 'relu', or 'exp_temp'")
+    parser.add_argument("--max-num-epochs", type=int,   default=200,        help="Max num epoch")
+    parser.add_argument("--batch-size",     type=int,   default=128,        help="batch size")
+    parser.add_argument("--train-ll",       type=bool,  default=False,      help="Compute train-ll at the end of each epoch")
+    parser.add_argument("--progressbar",    type=bool,  default=False,      help="Print the progress bar")
+    parser.add_argument('-t0',              type=int,   default=1,          help='sched CAWR t0, 1 for fixed lr ')
+    parser.add_argument('-eta_min',         type=float, default=1e-4,       help='sched CAWR eta min')
     args = parser.parse_args()
     print(args)
     init_random_seeds(seed=args.seed)
 
-    device = (
-        f"cuda:{args.gpu}"
-        if torch.cuda.is_available() and args.gpu is not None
-        else "cpu"
-    )
+    LAYER_TYPES = {
+        "tucker": TuckerLayer,
+        "cp": CollapsedCPLayer,
+        "cp-shared": SharedCPLayer,
+    }
+    LEAF_TYPES = {"cat": CategoricalLayer, "bin": BinomialLayer}
+    REPARAM_TYPES = {
+        "exp": ReparamExp,
+        "relu": ReparamReLU,
+        "softplus": ReparamSoftplus,
+        "clamp": ReparamIdentity,
+        "softmax": ReparamSoftmax
+        # "exp_temp" will be added at run-time
+        # "softmax_temp" will be added at run-time
+    }
+
     assert args.layer in LAYER_TYPES
-    assert args.rg in RG_TYPES
+    assert args.rg in ["QG", "QT", "PD"]
     assert args.leaf in LEAF_TYPES
-    if args.num_input is None:
-        args.num_input = args.num_sums
+    device = f"cuda:{args.gpu}" if torch.cuda.is_available() and args.gpu is not None else "cpu"
+    if args.num_input is None: args.num_input = args.num_sums
 
-    train_x, valid_x, test_x = load_dataset(args.dataset, device="cpu")
-
-    # Setup region graph
-    rg: RegionGraph
-    if args.rg == "QG":  # TODO: generalize width and height
-        rg = QuadTree(width=28, height=28, struct_decomp=False)
-    elif args.rg == "QT":
-        rg = QuadTree(width=28, height=28, struct_decomp=True)
-    elif args.rg == "PD":
-        rg = PoonDomingos(shape=(28, 28), delta=4)
-    else:
-        raise AssertionError("Invalid RG")
+    rg: RegionGraph = {
+        "QG": QuadTree(width=28, height=28, struct_decomp=False),
+        "GT": QuadTree(width=28, height=28, struct_decomp=True),
+        "PD": PoonDomingos(shape=(28, 28), delta=4)
+    }[args.rg]
 
     # Setup leaves setting
     efamily_kwargs: dict
@@ -317,18 +291,6 @@ if __name__ == "__main__":
         efamily_kwargs = {"num_categories": 256}
     elif args.leaf == "bin":
         efamily_kwargs = {"n": 256}
-
-    # setup reparam
-    class ReparamExpTemp(ReparamLeaf):
-        def forward(self) -> torch.Tensor:
-            return torch.exp(self.param / np.sqrt(args.num_sums))
-
-    class ReparamSoftmaxTemp(ReparamLeaf):
-        def forward(self) -> torch.Tensor:
-            param = self.param if self.log_mask is None else self.param + self.log_mask
-            param = self._unflatten_dims(torch.softmax(self._flatten_dims(param) / np.sqrt(args.num_sums),
-                                                       dim=self.dims[0]))
-            return torch.nan_to_num(param, nan=1)
 
     REPARAM_TYPES["exp_temp"] = ReparamExpTemp
     REPARAM_TYPES["softmax_temp"] = ReparamSoftmaxTemp
@@ -348,7 +310,6 @@ if __name__ == "__main__":
     model_name = args.layer
 
     # compose model path
-    # e.g. out/mnist/
     save_path = os.path.join(
         args.model_dir,
         args.dataset,
@@ -361,12 +322,11 @@ if __name__ == "__main__":
         get_date_time_str() + ".mdl",
     )
 
-    # Train the model
     train_procedure(
         pc=pc,
         pc_hypar={
             "RG": args.rg,
-            "PAR": args.layer,
+            "layer": args.layer,
             "LEAF": args.leaf,
             "REPARAM": args.reparam,
             "K": args.num_sums,
@@ -383,7 +343,7 @@ if __name__ == "__main__":
         lr=args.lr,
         weight_decay=args.weight_decay,
         max_num_epochs=args.max_num_epochs,
-        patience=10,
+        patience=args.patience,
         compute_train_ll=args.train_ll,
         verbose=args.progressbar
     )
