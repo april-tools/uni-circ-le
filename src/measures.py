@@ -75,5 +75,5 @@ def eval_bpd(pc: TensorizedPC, x: torch.Tensor, device: str = 'cpu') -> float:
     return -ll / (np.log(2) * pc.num_vars)  # TODO: check this
 
 
-def bpd_from_ll(pc: TensorizedPC, ll: float) -> float:
-    return -ll / (np.log(2) * pc.num_vars)
+def ll2bpd(ll: float, num_vars: int) -> float:
+    return -ll / (np.log(2) * num_vars)
