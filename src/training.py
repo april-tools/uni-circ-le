@@ -274,23 +274,21 @@ if __name__ == "__main__":
     }
 
     assert args.layer in LAYER_TYPES
-    assert args.rg in ["QG", "QT", "PD"]
+    assert args.rg in ['QG', 'QT', 'PD', 'RND', 'CLT']
     assert args.leaf in LEAF_TYPES
     device = f"cuda:{args.gpu}" if torch.cuda.is_available() and args.gpu is not None else "cpu"
     if args.num_input is None: args.num_input = args.num_sums
 
     rg: RegionGraph = {
-        "QG": QuadTree(width=28, height=28, struct_decomp=False),
-        "GT": QuadTree(width=28, height=28, struct_decomp=True),
-        "PD": PoonDomingos(shape=(28, 28), delta=4)
+        'QG': QuadTree(width=28, height=28, struct_decomp=False),
+        'QT': QuadTree(width=28, height=28, struct_decomp=True),
+        'PD': PoonDomingos(shape=(28, 28), delta=4)
     }[args.rg]
 
-    # Setup leaves setting
-    efamily_kwargs: dict
-    if args.leaf == "cat":
-        efamily_kwargs = {"num_categories": 256}
-    elif args.leaf == "bin":
-        efamily_kwargs = {"n": 256}
+    efamily_kwargs: dict = {
+        'cat': {'num_categories': 256},
+        'bin': {'n': 256}
+    }[args.leaf]
 
     # REPARAM_TYPES["exp_temp"] = ReparamExpTemp
     # REPARAM_TYPES["softmax_temp"] = ReparamSoftmaxTemp
