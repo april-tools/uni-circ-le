@@ -2,7 +2,7 @@
   "common":
   {
     "model-dir": "out",
-    "num-epochs": 200,
+    "max-num-epochs": 200,
     "patience": 5
   },
   "datasets": ["mnist"],
