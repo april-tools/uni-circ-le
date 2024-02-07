@@ -33,7 +33,7 @@ from cirkit.region_graph.quad_tree import QuadTree
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--seed",           type=int,   default=42,         help="Random seed")
-parser.add_argument("--gpu",            type=int,   default=None,       help="Device on which run the benchmark")
+parser.add_argument("--gpu",            type=int,   default=0,          help="Device on which run the benchmark")
 parser.add_argument("--dataset",        type=str,   default="mnist",    help="Dataset for the experiment")
 parser.add_argument("--model-dir",      type=str,   default="out",      help="Base dir for saving the model")
 parser.add_argument("--lr",             type=float, default=0.1,        help="Path of the model to be loaded")
