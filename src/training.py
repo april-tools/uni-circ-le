@@ -14,7 +14,7 @@ import argparse
 import torch
 import time
 
-from reparam import ReparamExpTemp, ReparamSoftmaxTemp, ReparamReLU, ReparamSoftplus
+from reparam import ReparamReLU, ReparamSoftplus
 from utils import load_dataset, check_validity_params, init_random_seeds, get_date_time_str, num_of_params
 from measures import eval_loglikelihood_batched, bpd_from_ll
 
@@ -292,8 +292,8 @@ if __name__ == "__main__":
     elif args.leaf == "bin":
         efamily_kwargs = {"n": 256}
 
-    REPARAM_TYPES["exp_temp"] = ReparamExpTemp
-    REPARAM_TYPES["softmax_temp"] = ReparamSoftmaxTemp
+    # REPARAM_TYPES["exp_temp"] = ReparamExpTemp
+    # REPARAM_TYPES["softmax_temp"] = ReparamSoftmaxTemp
 
     # Create probabilistic circuit
     pc = TensorizedPC.from_region_graph(
