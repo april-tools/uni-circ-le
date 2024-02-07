@@ -136,7 +136,7 @@ if __name__ == '__main__':
         num_devices = len(multi_devices)
         commands_per_device = defaultdict(list)
         for cmd, device in commands:
-            commands_per_device[device].append(f'{cmd} --device {device}')
+            commands_per_device[device].append(f'{cmd} --gpu {device}')
         with multiprocessing.Pool(num_devices) as pool:
             for device, device_cmds in commands_per_device.items():
                 pool.apply_async(run_multi_commands, args=[device_cmds])
@@ -145,7 +145,7 @@ if __name__ == '__main__':
     else:
         with multiprocessing.Pool(num_jobs) as pool:
             for cmd, device in commands:
-                cmd = f'{cmd} --device {device}'
+                cmd = f'{cmd} --gpu {device}'
                 pool.apply_async(
                     subprocess.run, args=[cmd.split()],
                     kwds=dict(stdout=subprocess.DEVNULL)
