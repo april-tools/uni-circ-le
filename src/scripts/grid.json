@@ -13,8 +13,7 @@
       "batch-size": [64, 128, 256],
       "lr": [1e-1, 1e-2, 1e-3],
       "input-type": "cat",
-      "reparam": "clamp",
-      "k": 64
+      "reparam": "clamp"
     },
     "models":
     {
@@ -23,7 +22,14 @@
         "PD-CP":
         {
           "rg": "PD",
-          "layer": "cp"
+          "layer": "cp",
+          "k": 64
+        },
+        "QG-Tucker":
+        {
+          "rg": "QG",
+          "layer": "tucker",
+          "k": 128
         }
       }
     }
