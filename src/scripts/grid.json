@@ -14,7 +14,7 @@
       "lr": [1e-1, 1e-2, 1e-3],
       "input-type": "cat",
       "reparam": "clamp",
-      "k": 128
+      "k": 64
     },
     "models":
     {
@@ -24,12 +24,6 @@
         {
           "rg": "PD",
           "layer": "cp"
-        },
-
-        "QG-tucker":
-        {
-          "rg": "QG",
-          "layer": "tucker"
         }
       }
     }
