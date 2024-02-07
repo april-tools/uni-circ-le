@@ -36,7 +36,7 @@ def model_hparams(hps_grid: dict, common_hps_grid: dict) -> List[Tuple[Optional[
 
 
 def build_command_string(dataset: str, model: str, hp: dict) -> str:
-    c = 'python src/scripts/experiment.py'
+    c = 'python src/training.py'
     c = f'{c} --dataset {dataset}'
     for k, v in hp.items():
         if isinstance(v, bool):
