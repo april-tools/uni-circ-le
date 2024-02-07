@@ -40,10 +40,10 @@ parser.add_argument("--lr",             type=float, default=0.1,        help="Pa
 parser.add_argument("--patience",       type=int,   default=5,          help='patience for early stopping')
 parser.add_argument("--weight-decay",   type=float, default=0,          help="Weight decay coefficient")
 parser.add_argument("--num-sums",       type=int,   default=128,        help="Num sums")
-parser.add_argument("--num-input",      type=int,   default=None,       help="Num input distributions per leaf, if None then is equal to num-sums",)
+parser.add_argument("--num-input",      type=int,   default=None,       help="Num input distributions per input region, if None then is equal to num-sums",)
 parser.add_argument("--rg",             type=str,   default="QT",       help="Region graph: 'PD', 'QG', or 'QT'")
 parser.add_argument("--layer",          type=str,                       help="Layer type: 'tucker', 'cp' or 'cp-shared'")
-parser.add_argument("--input_type",     type=str,                       help="Leaf type: either 'cat' or 'bin'")
+parser.add_argument("--input_type",     type=str,                       help="input type: either 'cat' or 'bin'")
 parser.add_argument("--reparam",        type=str,   default="exp",      help="Either 'exp', 'relu', or 'exp_temp'")
 parser.add_argument("--max-num-epochs", type=int,   default=200,        help="Max num epoch")
 parser.add_argument("--batch-size",     type=int,   default=128,        help="batch size")
@@ -61,7 +61,7 @@ LAYER_TYPES = {
     "cp": CollapsedCPLayer,
     "cp-shared": SharedCPLayer,
 }
-LEAF_TYPES = {"cat": CategoricalLayer, "bin": BinomialLayer}
+INPUT_TYPES = {"cat": CategoricalLayer, "bin": BinomialLayer}
 REPARAM_TYPES = {
     "exp": ReparamExp,
     "relu": ReparamReLU,
@@ -74,7 +74,7 @@ REPARAM_TYPES = {
 
 assert args.layer in LAYER_TYPES
 assert args.rg in ['QG', 'QT', 'PD', 'RND', 'CLT']
-assert args.leaf in LEAF_TYPES
+assert args.input_type in INPUT_TYPES
 device = f"cuda:{args.gpu}" if torch.cuda.is_available() and args.gpu is not None else "cpu"
 if args.num_input is None: args.num_input = args.num_sums
 
@@ -90,7 +90,7 @@ save_path = os.path.join(
     args.dataset,
     args.rg,
     args.layer,
-    args.leaf,
+    args.input_type,
     args.reparam,
     str(args.num_sums),
     str(args.lr),
@@ -113,13 +113,13 @@ rg: RegionGraph = {
 efamily_kwargs: dict = {
     'cat': {'num_categories': 256},
     'bin': {'n': 256}
-}[args.leaf]
+}[args.input_type]
 
 
 pc = TensorizedPC.from_region_graph(
     rg=rg,
     layer_cls=LAYER_TYPES[args.layer],
-    efamily_cls=LEAF_TYPES[args.leaf],
+    efamily_cls=INPUT_TYPES[args.input_type],
     efamily_kwargs=efamily_kwargs,
     num_inner_units=args.num_sums,
     num_input_units=args.num_input,
@@ -168,7 +168,7 @@ for epoch_count in range(1, args.max_num_epochs + 1):
         check_validity_params(pc)
 
         # project params in inner layers TODO: remove or edit?
-        if args.reperam == "clamp":
+        if args.reparam == "clamp":
             for layer in pc.inner_layers:
                 if type(layer) == CollapsedCPLayer:
                     layer.params_in().data = torch.clamp(layer.params_in(), min=sqrt_eps)
