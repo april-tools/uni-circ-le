@@ -44,7 +44,7 @@ parser.add_argument("--k-in",           type=int,   default=None,       help="Nu
 parser.add_argument("--rg",             type=str,   default="QT",       help="Region graph: 'PD', 'QG', or 'QT'")
 parser.add_argument("--layer",          type=str,                       help="Layer type: 'tucker', 'cp' or 'cp-shared'")
 parser.add_argument("--input-type",     type=str,                       help="input type: either 'cat' or 'bin'")
-parser.add_argument("--reparam",        type=str,   default="exp",      help="Either 'exp', 'relu', or 'exp_temp'")
+parser.add_argument("--reparam",        type=str,   default="clamp",      help="Either 'exp', 'relu', 'exp_temp' or 'clamp'")
 parser.add_argument("--max-num-epochs", type=int,   default=200,        help="Max num epoch")
 parser.add_argument("--batch-size",     type=int,   default=128,        help="batch size")
 parser.add_argument("--progressbar",    type=bool,  default=False,      help="Print the progress bar")
@@ -225,7 +225,7 @@ writer.add_hparams(
     hparam_domain_discrete={
         'dataset':      ['mnist', 'fashion_mnist', 'celeba'],
         'rg':           ['QG', 'PD', 'QT'],
-        'layer':        ['cp', 'cpshared', 'tucker'],
+        'layer':        [layer for layer in LAYER_TYPES],
         'input_type':   ['bin', 'cat'],
         'reparam':      ['softplus', 'exp', 'exp_temp', 'relu', 'clamp']
     },
