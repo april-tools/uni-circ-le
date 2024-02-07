@@ -39,15 +39,14 @@ parser.add_argument("--model-dir",      type=str,   default="out",      help="Ba
 parser.add_argument("--lr",             type=float, default=0.1,        help="Path of the model to be loaded")
 parser.add_argument("--patience",       type=int,   default=5,          help='patience for early stopping')
 parser.add_argument("--weight-decay",   type=float, default=0,          help="Weight decay coefficient")
-parser.add_argument("--num-sums",       type=int,   default=128,        help="Num sums")
-parser.add_argument("--num-input",      type=int,   default=None,       help="Num input distributions per input region, if None then is equal to num-sums",)
+parser.add_argument("--k",              type=int,   default=128,        help="Num categories for mixtures")
+parser.add_argument("--k-in",           type=int,   default=None,       help="Num input distributions per input region, if None then is equal to k",)
 parser.add_argument("--rg",             type=str,   default="QT",       help="Region graph: 'PD', 'QG', or 'QT'")
 parser.add_argument("--layer",          type=str,                       help="Layer type: 'tucker', 'cp' or 'cp-shared'")
 parser.add_argument("--input-type",     type=str,                       help="input type: either 'cat' or 'bin'")
 parser.add_argument("--reparam",        type=str,   default="exp",      help="Either 'exp', 'relu', or 'exp_temp'")
 parser.add_argument("--max-num-epochs", type=int,   default=200,        help="Max num epoch")
 parser.add_argument("--batch-size",     type=int,   default=128,        help="batch size")
-parser.add_argument("--train-ll",       type=bool,  default=False,      help="Compute train-ll at the end of each epoch")
 parser.add_argument("--progressbar",    type=bool,  default=False,      help="Print the progress bar")
 parser.add_argument('--t0',              type=int,   default=1,          help='sched CAWR t0, 1 for fixed lr ')
 parser.add_argument('--eta-min',         type=float, default=1e-4,       help='sched CAWR eta min')
@@ -76,7 +75,7 @@ assert args.layer in LAYER_TYPES
 assert args.rg in ['QG', 'QT', 'PD', 'RND', 'CLT']
 assert args.input_type in INPUT_TYPES
 device = f"cuda:{args.gpu}" if torch.cuda.is_available() and args.gpu is not None else "cpu"
-if args.num_input is None: args.num_input = args.num_sums
+if args.k_in is None: args.k_in = args.k
 
 
 ###########################################################################
@@ -92,8 +91,9 @@ save_path = os.path.join(
     args.layer,
     args.input_type,
     args.reparam,
-    str(args.num_sums),
-    str(args.lr),
+    f"k_{args.k}",
+    f"lr_{args.lr}",
+    f"b_{args.batch_size}",
     get_date_time_str() + ".mdl",
 )
 model_id: str = os.path.splitext(os.path.basename(save_path))[0]
@@ -121,8 +121,8 @@ pc = TensorizedPC.from_region_graph(
     layer_cls=LAYER_TYPES[args.layer],
     efamily_cls=INPUT_TYPES[args.input_type],
     efamily_kwargs=efamily_kwargs,
-    num_inner_units=args.num_sums,
-    num_input_units=args.num_input,
+    num_inner_units=args.k,
+    num_input_units=args.k_in,
     reparam=REPARAM_TYPES[args.reparam],
 ).to(device)
 print(f"Num of params: {num_of_params(pc)}")
@@ -170,7 +170,7 @@ for epoch_count in range(1, args.max_num_epochs + 1):
         # project params in inner layers TODO: remove or edit?
         if args.reparam == "clamp":
             for layer in pc.inner_layers:
-                if type(layer) == CollapsedCPLayer:
+                if type(layer) in [CollapsedCPLayer, SharedCPLayer]: # note, those are collapsed but we should also include non collapsed versions
                     layer.params_in().data = torch.clamp(layer.params_in(), min=sqrt_eps)
                 else:
                     layer.params().data = torch.clamp(layer.params(), min=sqrt_eps)
@@ -224,10 +224,10 @@ writer.add_hparams(
     },
     hparam_domain_discrete={
         'dataset':      ['mnist', 'fashion_mnist', 'celeba'],
-        'RG':           ['QG', 'PD', 'QT'],
+        'rg':           ['QG', 'PD', 'QT'],
         'layer':        ['cp', 'cpshared', 'tucker'],
         'input_type':   ['bin', 'cat'],
-        'reparam':      ['softplus', 'exp', 'exp_temp', 'relu']
+        'reparam':      ['softplus', 'exp', 'exp_temp', 'relu', 'clamp']
     },
 )
 writer.close()
