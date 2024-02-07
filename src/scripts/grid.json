@@ -1,16 +1,37 @@
 {
-  "script_path": "src/exp/train_main.py",
+  "common":
+  {
+    "model-dir": "out",
+    "num-epochs": 200,
+    "patience": 5
+  },
   "datasets": ["mnist"],
-
-  "hparams_grid": {
-      "num_sums": [4],
-      "rg": ["QG"],
-      "lr": [0.001],
-      "batch_size": [100],
-      "max_num_epochs": [500],
-      "layer": ["cp"]
+  "grid":
+  {
+    "common":
+    {
+      "batch-size": [64, 128, 256],
+      "lr": [1e-1, 1e-2, 1e-3],
+      "input-type": "cat",
+      "reparam": "clamp",
+      "k": 128
     },
+    "models":
+    {
+      "mnist":
+      {
+        "PD-CP":
+        {
+          "rg": "PD",
+          "layer": "cp"
+        },
 
-  "model_dir": "experiments/models",
-  "tensorboard_dir": "experiments/tensorboard/runs"
+        "QG-tucker":
+        {
+          "rg": "QG",
+          "layer": "tucker"
+        }
+      }
+    }
+  }
 }
