@@ -141,4 +141,8 @@ def RealQuadTree(width: int, height: int) -> RegionGraph:
         old_buffer_height = buffer_height
         old_buffer_width = buffer_width
 
+    assert graph.is_smooth
+    assert graph.is_decomposable
+    assert graph.is_structured_decomposable
+
     return graph
