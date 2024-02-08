@@ -92,7 +92,7 @@ def evaluate(
     ts, ms = [], []
     batch: Tuple[Tensor]
     for batch in data_loader:
-        x = batch[0].to(torch.int64).to(device)
+        x = batch[0].to(device)
         ll, (t, m) = benchmarker(functools.partial(_iter, x))
         ts.append(t)
         ms.append(m)
@@ -128,7 +128,7 @@ def train(
     ts, ms = [], []
     batch: Tuple[Tensor]
     for batch in data_loader:
-        x = batch[0].to(torch.int64).to(device)
+        x = batch[0].to(device)
         ll, (t, m) = benchmarker(functools.partial(_iter, x))
         ts.append(t)
         ms.append(m)
@@ -154,7 +154,7 @@ def main() -> None:
 
     num_vars = 28 * 28
     data_size = args.batch_size if args.first_pass_only else args.num_batches * args.batch_size
-    rand_data = torch.randint(256, (data_size, num_vars), dtype=torch.uint8)
+    rand_data = torch.randint(256, (data_size, num_vars, 1), dtype=torch.float32)
     data_loader = DataLoader(
         dataset=TensorDataset(rand_data),
         batch_size=args.batch_size,
