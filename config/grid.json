@@ -1,7 +1,7 @@
 {
   "common":
   {
-    "model-dir": "out/models",
+    "model-dir": "out",
     "max-num-epochs": 200,
     "patience": 5
   },
