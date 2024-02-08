@@ -108,7 +108,7 @@ rg: RegionGraph = {
     'QG':   QuadTree(width=28, height=28, struct_decomp=False),
     'QT':   QuadTree(width=28, height=28, struct_decomp=True),
     'PD':   PoonDomingos(shape=(28, 28), delta=4),
-    'HCLT': tree2rg(TREE_DICT[args.dataset])
+    'CLT':  tree2rg(TREE_DICT[args.dataset])
 }[args.rg]
 
 efamily_kwargs: dict = {
