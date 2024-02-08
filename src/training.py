@@ -31,6 +31,7 @@ from cirkit.layers.sum_product import CollapsedCPLayer, TuckerLayer, SharedCPLay
 from cirkit.region_graph import RegionGraph
 from cirkit.region_graph.poon_domingos import PoonDomingos
 from cirkit.region_graph.quad_tree import QuadTree
+from real_qt import RealQuadTree
 
 
 parser = argparse.ArgumentParser()
@@ -43,7 +44,7 @@ parser.add_argument("--patience",       type=int,   default=5,          help='pa
 parser.add_argument("--weight-decay",   type=float, default=0,          help="Weight decay coefficient")
 parser.add_argument("--k",              type=int,   default=128,        help="Num categories for mixtures")
 parser.add_argument("--k-in",           type=int,   default=None,       help="Num input distributions per input region, if None then is equal to k",)
-parser.add_argument("--rg",             type=str,   default="QT",       help="Region graph: 'PD', 'QG', or 'QT'")
+parser.add_argument("--rg",             type=str,   default="QT",       help="Region graph: 'PD', 'QG', 'QT' or 'RQT'")
 parser.add_argument("--layer",          type=str,                       help="Layer type: 'tucker', 'cp' or 'cp-shared'")
 parser.add_argument("--input-type",     type=str,                       help="input type: either 'cat' or 'bin'")
 parser.add_argument("--reparam",        type=str,   default="clamp",    help="Either 'exp', 'relu', 'exp_temp' or 'clamp'")
@@ -74,7 +75,6 @@ REPARAM_TYPES = {
 }
 
 assert args.layer in LAYER_TYPES
-assert args.rg in ['QG', 'QT', 'PD', 'RND', 'HCLT']
 assert args.input_type in INPUT_TYPES
 device = f"cuda:{args.gpu}" if torch.cuda.is_available() and args.gpu is not None else "cpu"
 if args.k_in is None: args.k_in = args.k
@@ -113,12 +113,16 @@ if not os.path.exists(os.path.dirname(save_model_path)): os.makedirs(os.path.dir
 ################################## instantiate model ##################################
 #######################################################################################
 
-rg: RegionGraph = {
+REGION_GRAPHS = {
     'QG':   QuadTree(width=28, height=28, struct_decomp=False),
     'QT':   QuadTree(width=28, height=28, struct_decomp=True),
     'PD':   PoonDomingos(shape=(28, 28), delta=4),
-    'CLT':  tree2rg(TREE_DICT[args.dataset])
-}[args.rg]
+    'CLT':  tree2rg(TREE_DICT[args.dataset]),
+    'RQT':  RealQuadTree(width=28, height=28)
+}
+# TODO: move this assert?
+assert args.rg in REGION_GRAPHS
+rg: RegionGraph = REGION_GRAPHS[args.rg]
 
 efamily_kwargs: dict = {
     'cat': {'num_categories': 256},
@@ -235,10 +239,10 @@ writer.add_hparams(
     },
     hparam_domain_discrete={
         'dataset':      ['mnist', 'fashion_mnist', 'celeba'],
-        'rg':           ['QG', 'PD', 'QT'],
+        'rg':           [rg_name for rg_name in REGION_GRAPHS],
         'layer':        [layer for layer in LAYER_TYPES],
-        'input_type':   ['bin', 'cat'],
-        'reparam':      ['softplus', 'exp', 'exp_temp', 'relu', 'clamp']
+        'input_type':   [input_type for input_type in INPUT_TYPES],
+        'reparam':      [reparam for reparam in REPARAM_TYPES]
     },
 )
 writer.close()
