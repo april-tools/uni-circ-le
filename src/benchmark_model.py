@@ -29,7 +29,7 @@ from trees import TREE_DICT
 
 
 
-device = torch.device("cuda")
+# device: torch.device("cuda")
 
 
 class _Modes(str, enum.Enum):  # TODO: StrEnum introduced in 3.11
@@ -64,12 +64,15 @@ def process_args() -> _ArgsNamespace:
     parser.add_argument("--region_graph", type=str, help="region_graph filename")
     parser.add_argument("--num_latents", type=int, help="num_latents")
     parser.add_argument("--first_pass_only", action="store_true", help="first_pass_only")
+    parser.add_argument("--gpu", type=int, help="Which gpu to use")
     return parser.parse_args(namespace=_ArgsNamespace())
+
+
 
 
 @torch.no_grad()
 def evaluate(
-    pc: TensorizedPC, data_loader: DataLoader[Tuple[Tensor, ...]]
+    pc: TensorizedPC, data_loader: DataLoader[Tuple[Tensor, ...]], device
 ) -> Tuple[Tuple[List[float], List[float]], float]:
     """Evaluate circuit on given data.
 
@@ -99,7 +102,7 @@ def evaluate(
 
 
 def train(
-    pc: TensorizedPC, optimizer: optim.Optimizer, data_loader: DataLoader[Tuple[Tensor, ...]]
+    pc: TensorizedPC, optimizer: optim.Optimizer, data_loader: DataLoader[Tuple[Tensor, ...]], device
 ) -> Tuple[Tuple[List[float], List[float]], float]:
     """Train circuit on given data.
 
@@ -138,6 +141,7 @@ def main() -> None:
     """Execute the main procedure."""
     args = process_args()
     assert args.region_graph, "Must provide a RG filename"
+    device = torch.device(f"cuda:{args.gpu}")
     print(args)
 
     if args.seed:
@@ -183,10 +187,10 @@ def main() -> None:
 
     if args.mode == _Modes.TRAIN:
         optimizer = optim.Adam(pc.parameters())  # just keep everything default
-        (ts, ms), ll_train = train(pc, optimizer, data_loader)
+        (ts, ms), ll_train = train(pc, optimizer, data_loader, device=device)
         print("Train LL:", ll_train)
     elif args.mode == _Modes.EVAL:
-        (ts, ms), ll_eval = evaluate(pc, data_loader)
+        (ts, ms), ll_eval = evaluate(pc, data_loader, device=device)
         print("Evaluation LL:", ll_eval)
     else:
         assert False, "Something is wrong here"
