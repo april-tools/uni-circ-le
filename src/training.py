@@ -7,13 +7,14 @@ import functools
 print = functools.partial(print, flush=True)
 
 from torch.utils.tensorboard import SummaryWriter
-from typing import Optional
 from tqdm import tqdm
 import numpy as np
 import argparse
 import torch
 import time
 
+from trees import TREE_DICT
+from clt import tree2rg
 from reparam import ReparamReLU, ReparamSoftplus
 from utils import load_dataset, check_validity_params, init_random_seeds, get_date_time_str, num_of_params
 from measures import eval_loglikelihood_batched, ll2bpd
@@ -44,12 +45,12 @@ parser.add_argument("--k-in",           type=int,   default=None,       help="Nu
 parser.add_argument("--rg",             type=str,   default="QT",       help="Region graph: 'PD', 'QG', or 'QT'")
 parser.add_argument("--layer",          type=str,                       help="Layer type: 'tucker', 'cp' or 'cp-shared'")
 parser.add_argument("--input-type",     type=str,                       help="input type: either 'cat' or 'bin'")
-parser.add_argument("--reparam",        type=str,   default="clamp",      help="Either 'exp', 'relu', 'exp_temp' or 'clamp'")
+parser.add_argument("--reparam",        type=str,   default="clamp",    help="Either 'exp', 'relu', 'exp_temp' or 'clamp'")
 parser.add_argument("--max-num-epochs", type=int,   default=200,        help="Max num epoch")
 parser.add_argument("--batch-size",     type=int,   default=128,        help="batch size")
 parser.add_argument("--progressbar",    type=bool,  default=False,      help="Print the progress bar")
-parser.add_argument('--t0',              type=int,   default=1,          help='sched CAWR t0, 1 for fixed lr ')
-parser.add_argument('--eta-min',         type=float, default=1e-4,       help='sched CAWR eta min')
+parser.add_argument('--t0',             type=int,   default=1,          help='sched CAWR t0, 1 for fixed lr ')
+parser.add_argument('--eta-min',        type=float, default=1e-4,       help='sched CAWR eta min')
 args = parser.parse_args()
 print(args)
 init_random_seeds(seed=args.seed)
@@ -72,11 +73,10 @@ REPARAM_TYPES = {
 }
 
 assert args.layer in LAYER_TYPES
-assert args.rg in ['QG', 'QT', 'PD', 'RND', 'CLT']
+assert args.rg in ['QG', 'QT', 'PD', 'RND', 'HCLT']
 assert args.input_type in INPUT_TYPES
 device = f"cuda:{args.gpu}" if torch.cuda.is_available() and args.gpu is not None else "cpu"
 if args.k_in is None: args.k_in = args.k
-
 
 ###########################################################################
 ################### load dataset & create logging utils ###################
@@ -105,16 +105,16 @@ if not os.path.exists(os.path.dirname(save_path)): os.makedirs(os.path.dirname(s
 #######################################################################################
 
 rg: RegionGraph = {
-    'QG': QuadTree(width=28, height=28, struct_decomp=False),
-    'QT': QuadTree(width=28, height=28, struct_decomp=True),
-    'PD': PoonDomingos(shape=(28, 28), delta=4)
+    'QG':   QuadTree(width=28, height=28, struct_decomp=False),
+    'QT':   QuadTree(width=28, height=28, struct_decomp=True),
+    'PD':   PoonDomingos(shape=(28, 28), delta=4),
+    'HCLT': tree2rg(TREE_DICT[args.dataset])
 }[args.rg]
 
 efamily_kwargs: dict = {
     'cat': {'num_categories': 256},
     'bin': {'n': 256}
 }[args.input_type]
-
 
 pc = TensorizedPC.from_region_graph(
     rg=rg,
