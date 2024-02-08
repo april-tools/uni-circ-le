@@ -1,5 +1,6 @@
 import sys
 import os
+from typing import Literal
 sys.path.append(os.path.join(os.getcwd(), "cirkit"))
 sys.path.append(os.path.join(os.getcwd(), "src"))
 
@@ -84,21 +85,29 @@ if args.k_in is None: args.k_in = args.k
 
 train, valid, test = load_dataset(args.dataset, device='cpu')
 
-save_path = os.path.join(
-    args.model_dir,
-    args.dataset,
-    args.rg,
-    args.layer,
-    args.input_type,
-    args.reparam,
-    f"k_{args.k}",
-    f"lr_{args.lr}",
-    f"b_{args.batch_size}",
-    get_date_time_str() + ".mdl",
-)
-model_id: str = os.path.splitext(os.path.basename(save_path))[0]
-writer = SummaryWriter(log_dir=os.path.join(os.path.dirname(save_path), model_id))
-if not os.path.exists(os.path.dirname(save_path)): os.makedirs(os.path.dirname(save_path))
+def make_path(base_dir, intermediate_dir: Literal["models", "logs"]):
+    return os.path.join(
+        base_dir,
+        intermediate_dir,
+        args.dataset,
+        args.rg,
+        args.layer,
+        args.input_type,
+        args.reparam,
+        f"k_{args.k}",
+        f"lr_{args.lr}",
+        f"b_{args.batch_size}",
+        get_date_time_str() + ".mdl",
+    )
+
+# where to save the model
+save_model_path: str = make_path(args.model_dir, "models")
+save_log_path: str = make_path(args.model_dir, "logs")
+
+# model id is date_time_str
+model_id: str = os.path.splitext(os.path.basename(save_model_path))[0]
+writer = SummaryWriter(log_dir=os.path.join(os.path.dirname(save_log_path), model_id))
+if not os.path.exists(os.path.dirname(save_model_path)): os.makedirs(os.path.dirname(save_model_path))
 
 #######################################################################################
 ################################## instantiate model ##################################
@@ -171,9 +180,9 @@ for epoch_count in range(1, args.max_num_epochs + 1):
         if args.reparam == "clamp":
             for layer in pc.inner_layers:
                 if type(layer) in [CollapsedCPLayer, SharedCPLayer]: # note, those are collapsed but we should also include non collapsed versions
-                    layer.params_in().data = torch.clamp(layer.params_in(), min=sqrt_eps)
+                    layer.params_in().data.clamp_(min=sqrt_eps)
                 else:
-                    layer.params().data = torch.clamp(layer.params(), min=sqrt_eps)
+                    layer.params().data.clamp_(min=sqrt_eps)
 
         if args.progressbar and batch_count % 10 == 0:
             pbar.set_description(f"Epoch {epoch_count} Train LL={log_likelihood.item() / args.batch_size :.2f})")
@@ -192,7 +201,7 @@ for epoch_count in range(1, args.max_num_epochs + 1):
             break
     else:
         print("-> Saved model")
-        torch.save(pc, save_path)
+        torch.save(pc, save_model_path)
         best_valid_ll = valid_ll
         patience_counter = args.patience
 
@@ -200,13 +209,14 @@ for epoch_count in range(1, args.max_num_epochs + 1):
     writer.add_scalar("valid_ll", valid_ll, epoch_count)
     writer.flush()
 
-print('Overall training time: %.2f (s)' % (time.time() - tik_train))
+train_time = time.time() - tik_train
+print(f'Overall training time: {train_time:.2f} (s)')
 
 #########################################################################
 ################################ testing ################################
 #########################################################################
 
-pc = torch.load(save_path)
+pc = torch.load(save_model_path)
 best_train_ll = eval_loglikelihood_batched(pc, train, device=device) / train.shape[0]
 best_test_ll = eval_loglikelihood_batched(pc, test, device=device) / test.shape[0]
 
@@ -221,6 +231,7 @@ writer.add_hparams(
         'Best/Valid/bpd':   float(ll2bpd(best_valid_ll, pc.num_vars)),
         'Best/Test/ll':     float(best_test_ll),
         'Best/Test/bpd':    float(ll2bpd(best_test_ll, pc.num_vars)),
+        'train_time':       float(train_time),
     },
     hparam_domain_discrete={
         'dataset':      ['mnist', 'fashion_mnist', 'celeba'],
