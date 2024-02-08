@@ -1,7 +1,7 @@
 {
   "common":
   {
-    "model-dir": "out",
+    "model-dir": "out/models",
     "max-num-epochs": 200,
     "patience": 5
   },
@@ -19,17 +19,11 @@
     {
       "mnist":
       {
-        "PD-CP":
-        {
-          "rg": "PD",
-          "layer": "cp",
-          "k": 64
-        },
         "QG-Tucker":
         {
           "rg": "QG",
           "layer": "tucker",
-          "k": 128
+          "k": 64
         }
       }
     }
