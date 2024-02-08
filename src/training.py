@@ -48,11 +48,12 @@ parser.add_argument("--rg",             type=str,   default="QT",       help="Re
 parser.add_argument("--layer",          type=str,                       help="Layer type: 'tucker', 'cp' or 'cp-shared'")
 parser.add_argument("--input-type",     type=str,                       help="input type: either 'cat' or 'bin'")
 parser.add_argument("--reparam",        type=str,   default="clamp",    help="Either 'exp', 'relu', 'exp_temp' or 'clamp'")
-parser.add_argument("--max-num-epochs", type=int,   default=200,        help="Max num epoch")
+parser.add_argument("--max-num-epochs", type=int,   default=None,       help="Max num epoch")
 parser.add_argument("--batch-size",     type=int,   default=128,        help="batch size")
 parser.add_argument("--progressbar",    type=bool,  default=False,      help="Print the progress bar")
-parser.add_argument('--t0',             type=int,   default=1,          help='sched CAWR t0, 1 for fixed lr ')
-parser.add_argument('--eta-min',        type=float, default=1e-4,       help='sched CAWR eta min')
+parser.add_argument("--t0",             type=int,   default=1,          help='sched CAWR t0, 1 for fixed lr ')
+parser.add_argument("--eta-min",        type=float, default=1e-4,       help='sched CAWR eta min')
+parser.add_argument("--valid_freq",     type=int,   default=None,       help='validation step every valid_freq steps')
 args = parser.parse_args()
 print(args)
 init_random_seeds(seed=args.seed)
@@ -120,8 +121,6 @@ REGION_GRAPHS = {
     'CLT':  tree2rg(TREE_DICT[args.dataset]),
     'RQT':  RealQuadTree(width=28, height=28)
 }
-# TODO: move this assert?
-assert args.rg in REGION_GRAPHS
 rg: RegionGraph = REGION_GRAPHS[args.rg]
 
 efamily_kwargs: dict = {
@@ -163,7 +162,11 @@ patience_counter = args.patience
 tik_train = time.time()
 for epoch_count in range(1, args.max_num_epochs + 1):
 
-    idx_batches = torch.randperm(train.shape[0]).split(args.batch_size)
+    if args.valid_freq is not None:
+        idx_batches = torch.randint(train.shape[0], size=(args.valid_freq * args.batch_size)).split(args.batch_size)
+    else:
+        idx_batches = torch.randperm(train.shape[0]).split(args.batch_size)
+
     pbar = enumerate(idx_batches)
     if args.progressbar: pbar = tqdm(iterable=pbar, total=len(idx_batches), unit="steps", ascii=" ▖▘▝▗▚▞█", ncols=120)
 
@@ -194,8 +197,8 @@ for epoch_count in range(1, args.max_num_epochs + 1):
     train_ll = train_ll / train.shape[0]
     valid_ll = eval_loglikelihood_batched(pc, valid, device=device) / valid.shape[0]
 
-    print(f"[After epoch {epoch_count}]", 'train LL %.2f, valid LL %.2f' % (train_ll, valid_ll))
-    if device != "cpu": print('Max allocated GPU: %.2f' % (torch.cuda.max_memory_allocated() / 1024 ** 3))
+    print(f"[{epoch_count}-th valid step]", 'train LL %.2f, valid LL %.2f' % (train_ll, valid_ll))
+    if device != "cpu": print('max allocated GPU: %.2f' % (torch.cuda.max_memory_allocated() / 1024 ** 3))
 
     # Not improved
     if valid_ll <= best_valid_ll:
