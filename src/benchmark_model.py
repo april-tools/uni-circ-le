@@ -16,7 +16,7 @@ from torch.utils.data import DataLoader, TensorDataset
 
 from benchmark.utils.gpu_benchmark import benchmarker
 from cirkit.layers.input.exp_family import CategoricalLayer
-from cirkit.layers.sum_product.cp import UncollapsedCPLayer
+from cirkit.layers.sum_product.cp import CollapsedCPLayer, UncollapsedCPLayer
 from cirkit.models import TensorizedPC
 from cirkit.region_graph import RegionGraph
 from cirkit.utils import RandomCtx, set_determinism
@@ -141,7 +141,10 @@ def main() -> None:
     """Execute the main procedure."""
     args = process_args()
     assert args.region_graph, "Must provide a RG filename"
-    device = torch.device(f"cuda:{args.gpu}")
+    if args.gpu >= 0:
+        device = torch.device(f"cuda:{args.gpu}")
+    else:
+        device = torch.device("cpu")
     print(args)
 
     if args.seed:
@@ -174,9 +177,8 @@ def main() -> None:
 
     pc = TensorizedPC.from_region_graph(
         rg,
-        layer_cls=UncollapsedCPLayer,
+        layer_cls=CollapsedCPLayer,
         efamily_cls=CategoricalLayer,
-        layer_kwargs={"rank": 1},  # type: ignore[misc]
         efamily_kwargs={"num_categories": 256},  # type: ignore[misc]
         num_inner_units=args.num_latents,
         num_input_units=args.num_latents,
