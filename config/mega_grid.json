@@ -1,0 +1,37 @@
+{
+    "common":
+    {
+      "model-dir": "out/train_grid",
+      "max-num-epochs": 200,
+      "patience": 5
+    },
+    "datasets": ["mnist"],
+    "grid":
+    {
+      "common":
+      {
+        "k": [16, 32, 64, 128, 256, 512],
+        "layer": ["tucker", "cp", "cp-shared"],
+        "batch-size": 256,
+        "input-type": "cat",
+        "reparam": "clamp"
+      },
+      "models":
+      {
+        "mnist":
+        {
+            "PD":
+            {
+                "rg": "PD",
+                "lr": 0.1
+            },
+
+            "All-other-RGs":
+            {
+                "rg": "QG",
+                "lr": 0.01
+            }
+        }
+      }
+    }
+  }
