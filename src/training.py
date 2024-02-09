@@ -163,7 +163,7 @@ tik_train = time.time()
 for epoch_count in range(1, args.max_num_epochs + 1):
 
     if args.valid_freq is not None:
-        idx_batches = torch.randint(train.shape[0], size=(args.valid_freq * args.batch_size)).split(args.batch_size)
+        idx_batches = torch.randint(train.shape[0], size=(args.valid_freq * args.batch_size,)).split(args.batch_size)
     else:
         idx_batches = torch.randperm(train.shape[0]).split(args.batch_size)
 
