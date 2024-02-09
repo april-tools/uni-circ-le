@@ -5,7 +5,7 @@
       "max-num-epochs": 200,
       "patience": 5
     },
-    "datasets": ["mnist"],
+    "datasets": ["fashion_mnist"],
     "grid":
     {
       "common":
@@ -18,7 +18,7 @@
       },
       "models":
       {
-        "mnist":
+        "fashion_mnist":
         {
             "PD":
             {
