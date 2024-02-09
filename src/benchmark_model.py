@@ -39,7 +39,6 @@ parser.add_argument('--test-mode',  dest='train',   action='store_false',   help
 parser.add_argument("--num_steps",  type=int,       default=100,            help="num steps over which averaging")
 parser.add_argument("--batch_size", type=int,       default=128,            help="batch_size")
 parser.add_argument("--rg",         type=str,       default="QT",           help="Region graph: 'PD', 'QG', 'QT' or 'RQT'")
-parser.add_argument("--layer",      type=str,                               help="Layer type: 'tucker', 'cp' or 'cp-shared'")
 parser.add_argument("--input-type", type=str,       default="cat",          help="input type: either 'cat' or 'bin'")
 parser.add_argument("--reparam",    type=str,       default="clamp",        help="Either 'exp', 'relu', 'exp_temp' or 'clamp'")
 parser.add_argument("--k",          type=int,       default=128,            help="Num categories for mixtures")
