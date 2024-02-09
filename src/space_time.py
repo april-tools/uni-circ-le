@@ -46,6 +46,7 @@ parser.add_argument("--k",          type=int,       default=128,            help
 parser.add_argument("--k-in",       type=int,       default=None,           help="Num input distributions per input region, if None then is equal to k")
 args = parser.parse_args()
 device = f"cuda:{args.gpu}" if torch.cuda.is_available() and args.gpu is not None else "cpu"
+if args.k_in is None: args.k_in = args.k
 print(args)
 
 #######################################################################################
