@@ -1,209 +1,131 @@
 import argparse
-import enum
 import functools
-from dataclasses import dataclass
-from typing import List, Tuple
 import sys
 import os
+import time
 
 sys.path.append(os.path.join(os.getcwd(), "cirkit"))
 sys.path.append(os.path.join(os.getcwd(), "src"))
+print = functools.partial(print, flush=True)
 
 import numpy as np
 import torch
-from torch import Tensor, optim
-from torch.utils.data import DataLoader, TensorDataset
+from torch import optim
 
-from benchmark.utils.gpu_benchmark import benchmarker
-from cirkit.layers.input.exp_family import CategoricalLayer
-from cirkit.layers.sum_product.cp import CollapsedCPLayer, UncollapsedCPLayer
-from cirkit.models import TensorizedPC
-from cirkit.region_graph import RegionGraph
-from cirkit.utils import RandomCtx, set_determinism
+from real_qt import RealQuadTree
+from trees import TREE_DICT
+from clt import tree2rg
+from reparam import ReparamReLU, ReparamSoftplus
+from utils import num_of_params
+
+
+# cirkit
+from cirkit.models.tensorized_circuit import TensorizedPC
+from cirkit.models.functional import integrate
+from cirkit.reparams.leaf import ReparamExp, ReparamIdentity, ReparamLeaf, ReparamSoftmax
+from cirkit.layers.input.exp_family.categorical import CategoricalLayer
+from cirkit.layers.input.exp_family.binomial import BinomialLayer
+from cirkit.layers.sum_product import CollapsedCPLayer, TuckerLayer, SharedCPLayer
 from cirkit.region_graph import RegionGraph
 from cirkit.region_graph.poon_domingos import PoonDomingos
 from cirkit.region_graph.quad_tree import QuadTree
-from real_qt import RealQuadTree
-from clt import tree2rg
-from trees import TREE_DICT
 
 
+parser = argparse.ArgumentParser()
+parser.add_argument("--gpu",            type=int, help="Which gpu to use")
+parser.set_defaults(train_mode=True)
+parser.add_argument('--train-mode', dest='train',   action='store_true',    help='benchmark in training mode')
+parser.add_argument('--test-mode',  dest='train',   action='store_false',   help='benchmark in test mode')
+parser.add_argument("--num_steps",  type=int,       default=100,            help="num steps over which averaging")
+parser.add_argument("--batch_size", type=int,       default=128,            help="batch_size")
+parser.add_argument("--rg",         type=str,       default="QT",           help="Region graph: 'PD', 'QG', 'QT' or 'RQT'")
+parser.add_argument("--layer",      type=str,                               help="Layer type: 'tucker', 'cp' or 'cp-shared'")
+parser.add_argument("--input-type", type=str,       default="cat",          help="input type: either 'cat' or 'bin'")
+parser.add_argument("--reparam",    type=str,       default="clamp",        help="Either 'exp', 'relu', 'exp_temp' or 'clamp'")
+parser.add_argument("--k",          type=int,       default=128,            help="Num categories for mixtures")
+parser.add_argument("--k-in",       type=int,       default=None,           help="Num input distributions per input region, if None then is equal to k")
+args = parser.parse_args()
+device = f"cuda:{args.gpu}" if torch.cuda.is_available() and args.gpu is not None else "cpu"
+print(args)
 
-# device: torch.device("cuda")
+#######################################################################################
+################################## instantiate model ##################################
+#######################################################################################
 
+LAYER_TYPES = {
+    "tucker": TuckerLayer,
+    "cp": CollapsedCPLayer,
+    "cp-shared": SharedCPLayer,
+}
+INPUT_TYPES = {"cat": CategoricalLayer, "bin": BinomialLayer}
+REGION_GRAPHS = {
+    'QG': QuadTree(width=28, height=28, struct_decomp=False),
+    'QT': QuadTree(width=28, height=28, struct_decomp=True),
+    'PD': PoonDomingos(shape=(28, 28), delta=4),
+    'CLT': tree2rg(TREE_DICT[args.dataset]),
+    'RQT': RealQuadTree(width=28, height=28)
+}
+REPARAM_TYPES = {
+    "exp": ReparamExp,
+    "relu": ReparamReLU,
+    "softplus": ReparamSoftplus,
+    "clamp": ReparamIdentity,
+    "softmax": ReparamSoftmax
+}
 
-class _Modes(str, enum.Enum):  # TODO: StrEnum introduced in 3.11
-    """Execution modes."""
+efamily_kwargs: dict = {
+    'cat': {'num_categories': 256},
+    'bin': {'n': 256}
+}[args.input_type]
 
-    TRAIN = "train"
-    EVAL = "eval"
+pc = TensorizedPC.from_region_graph(
+    rg=REGION_GRAPHS[args.rg],
+    layer_cls=LAYER_TYPES[args.layer],
+    efamily_cls=INPUT_TYPES[args.input_type],
+    efamily_kwargs=efamily_kwargs,
+    num_inner_units=args.k,
+    num_input_units=args.k_in,
+    reparam=REPARAM_TYPES[args.reparam],
+).to(device)
+print(f"Num of params: {num_of_params(pc)}")
 
+sqrt_eps = np.sqrt(torch.finfo(torch.get_default_dtype()).tiny)  # todo find better place
+pc_pf: TensorizedPC = integrate(pc)
 
-@dataclass
-class _ArgsNamespace(argparse.Namespace):
-    mode: _Modes = _Modes.TRAIN
-    seed: int = 42
-    num_batches: int = 20
-    batch_size: int = 128
-    region_graph: str = ""
-    num_latents: int = 32  # TODO: rename this
-    first_pass_only: bool = False
+########################################################################################################
+################################## evaluate time & space requirements ##################################
+########################################################################################################
 
+batch = torch.randint(256, (args.batch_size, pc.num_vars, 1), dtype=torch.float32).to(device)
 
-def process_args() -> _ArgsNamespace:
-    """Process command line arguments.
-
-    Returns:
-        ArgsNamespace: Parsed args.
-    """
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--mode", type=_Modes, choices=_Modes.__members__.values(), help="mode")
-    parser.add_argument("--seed", type=int, help="seed, 0 for disable")
-    parser.add_argument("--num_batches", type=int, help="num_batches")
-    parser.add_argument("--batch_size", type=int, help="batch_size")
-    parser.add_argument("--region_graph", type=str, help="region_graph filename")
-    parser.add_argument("--num_latents", type=int, help="num_latents")
-    parser.add_argument("--first_pass_only", action="store_true", help="first_pass_only")
-    parser.add_argument("--gpu", type=int, help="Which gpu to use")
-    return parser.parse_args(namespace=_ArgsNamespace())
-
-
-
-
-@torch.no_grad()
-def evaluate(
-    pc: TensorizedPC, data_loader: DataLoader[Tuple[Tensor, ...]], device
-) -> Tuple[Tuple[List[float], List[float]], float]:
-    """Evaluate circuit on given data.
-
-    Args:
-        pc (TensorizedPC): The PC to evaluate.
-        data_loader (DataLoader[Tuple[Tensor, ...]]): The evaluation data.
-
-    Returns:
-        Tuple[Tuple[List[float], List[float]], float]:
-         A tuple consisting of time and memory measurements, and the average LL.
-    """
-
-    def _iter(x: Tensor) -> Tensor:
-        return pc(x)
-
-    ll_total = 0.0
-    ts, ms = [], []
-    batch: Tuple[Tensor]
-    for batch in data_loader:
-        x = batch[0].to(device)
-        ll, (t, m) = benchmarker(functools.partial(_iter, x))
-        ts.append(t)
-        ms.append(m)
-        ll_total += ll.mean().item()
-        del x, ll
-    return (ts, ms), ll_total / len(data_loader)
-
-
-def train(
-    pc: TensorizedPC, optimizer: optim.Optimizer, data_loader: DataLoader[Tuple[Tensor, ...]], device
-) -> Tuple[Tuple[List[float], List[float]], float]:
-    """Train circuit on given data.
-
-    Args:
-        pc (TensorizedPC): The PC to optimize.
-        optimizer (optim.Optimizer): The optimizer for circuit.
-        data_loader (DataLoader[Tuple[Tensor, ...]]): The training data.
-
-    Returns:
-        Tuple[Tuple[List[float], List[float]], float]:
-         A tuple consisting of time and memory measurements, and the average LL.
-    """
-
-    def _iter(x: Tensor) -> Tensor:
+time_per_batch = []
+if args.train_mode:
+    optimizer = optim.Adam(pc.parameters())  # just keep everything default
+    for _ in range(args.num_steps):
         optimizer.zero_grad()
-        ll = pc(x)
-        ll = ll.mean()
-        (-ll).backward()  # type: ignore[no-untyped-call]  # we optimize NLL
+        log_likelihood = (pc(batch) - pc_pf(batch)).sum(dim=0)
+        (-log_likelihood).backward()
         optimizer.step()
-        return ll.detach()
+        if args.reparam == "clamp":
+            for layer in pc.inner_layers:
+                if type(layer) in [CollapsedCPLayer, SharedCPLayer]:  # note, those are collapsed but we should also include non collapsed versions
+                    layer.params_in().data.clamp_(min=sqrt_eps)
+                else:
+                    layer.params().data.clamp_(min=sqrt_eps)
+else:
+    if args.reparam == "clamp":
+        for layer in pc.inner_layers:
+            if type(layer) in [CollapsedCPLayer, SharedCPLayer]:  # note, those are collapsed but we should also include non collapsed versions
+                layer.params_in().data.clamp_(min=sqrt_eps)
+            else:
+                layer.params().data.clamp_(min=sqrt_eps)
+    for _ in range(args.num_steps):
+        tik = time.time()
+        with torch.no_grad():
+            (pc(batch) - pc_pf(batch)).sum(dim=0);  # semicolon avoids printing
+        time_per_batch.append(time.time() - tik)
 
-    ll_total = 0.0
-    ts, ms = [], []
-    batch: Tuple[Tensor]
-    for batch in data_loader:
-        x = batch[0].to(device)
-        ll, (t, m) = benchmarker(functools.partial(_iter, x))
-        ts.append(t)
-        ms.append(m)
-        ll_total += ll.item()
-        del x, ll  # TODO: is everything released properly
-    return (ts, ms), ll_total / len(data_loader)
-
-
-def main() -> None:
-    """Execute the main procedure."""
-    args = process_args()
-    assert args.region_graph, "Must provide a RG filename"
-    if args.gpu >= 0:
-        device = torch.device(f"cuda:{args.gpu}")
-    else:
-        device = torch.device("cpu")
-    print(args)
-
-    if args.seed:
-        # TODO: find a way to set w/o with
-        RandomCtx(args.seed).__enter__()  # pylint: disable=unnecessary-dunder-call
-        set_determinism(check_hash_seed=False)
-
-    num_vars = 28 * 28
-    data_size = args.batch_size if args.first_pass_only else args.num_batches * args.batch_size
-    rand_data = torch.randint(256, (data_size, num_vars, 1), dtype=torch.float32)
-    data_loader = DataLoader(
-        dataset=TensorDataset(rand_data),
-        batch_size=args.batch_size,
-        shuffle=True,
-        pin_memory=True,
-        drop_last=True,
-    )
-
-    # create RG
-    REGION_GRAPHS = {
-    'QG':   QuadTree(width=28, height=28, struct_decomp=False),
-    'QT':   QuadTree(width=28, height=28, struct_decomp=True),
-    'PD':   PoonDomingos(shape=(28, 28), delta=4),
-    'CLT':  tree2rg(TREE_DICT["mnist"]),
-    'RQT':  RealQuadTree(width=28, height=28)
-    }
-
-    assert args.region_graph in REGION_GRAPHS
-    rg: RegionGraph = REGION_GRAPHS[args.region_graph]
-
-    pc = TensorizedPC.from_region_graph(
-        rg,
-        layer_cls=CollapsedCPLayer,
-        efamily_cls=CategoricalLayer,
-        efamily_kwargs={"num_categories": 256},  # type: ignore[misc]
-        num_inner_units=args.num_latents,
-        num_input_units=args.num_latents,
-    )
-    pc.to(device)
-    print(pc)
-    print(f"Number of parameters: {sum(p.numel() for p in pc.parameters())}")
-
-    if args.mode == _Modes.TRAIN:
-        optimizer = optim.Adam(pc.parameters())  # just keep everything default
-        (ts, ms), ll_train = train(pc, optimizer, data_loader, device=device)
-        print("Train LL:", ll_train)
-    elif args.mode == _Modes.EVAL:
-        (ts, ms), ll_eval = evaluate(pc, data_loader, device=device)
-        print("Evaluation LL:", ll_eval)
-    else:
-        assert False, "Something is wrong here"
-    if not args.first_pass_only and args.num_batches > 1:
-        # Skip warmup step
-        ts, ms = ts[1:], ms[1:]
-    mu_t, sigma_t = np.mean(ts).item(), np.std(ts).item()  # type: ignore[misc]
-    mu_m, sigma_m = np.mean(ms).item(), np.std(ms).item()  # type: ignore[misc]
-    print(f"Time (ms): {mu_t:.3f}+-{sigma_t:.3f}")
-    print(f"Memory (MiB): {mu_m:.3f}+-{sigma_m:.3f}")
-
-
-if __name__ == "__main__":
-    main()
+mu_t, sigma_t = np.mean(time_per_batch), np.std(time_per_batch)
+print(f"Time (ms): {mu_t:.3f}+-{sigma_t:.3f}")
+if device != "cpu":
+    print(f"Memory (GiB): {(torch.cuda.max_memory_allocated() / 1024 ** 3):.3f}")
