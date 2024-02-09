@@ -126,6 +126,7 @@ else:
             (pc(batch) - pc_pf(batch)).sum(dim=0);  # semicolon avoids printing
         time_per_batch.append(time.time() - tik)
 
+time_per_batch = time_per_batch[1:]
 mu_t, sigma_t = np.mean(time_per_batch), np.std(time_per_batch)
 print(f"Time (ms): {mu_t:.3f}+-{sigma_t:.3f}")
 if device != "cpu":
