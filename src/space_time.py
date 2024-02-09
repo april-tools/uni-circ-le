@@ -103,6 +103,7 @@ time_per_batch = []
 if args.train_mode:
     optimizer = torch.optim.Adam(pc.parameters())  # just keep everything default
     for _ in range(args.num_steps):
+        tik = time.time()
         optimizer.zero_grad()
         log_likelihood = (pc(batch) - pc_pf(batch)).sum(dim=0)
         (-log_likelihood).backward()
@@ -113,6 +114,7 @@ if args.train_mode:
                     layer.params_in().data.clamp_(min=sqrt_eps)
                 else:
                     layer.params().data.clamp_(min=sqrt_eps)
+        time_per_batch.append(time.time() - tik)
 else:
     if args.reparam == "clamp":
         for layer in pc.inner_layers:
