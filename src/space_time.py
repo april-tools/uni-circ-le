@@ -15,8 +15,8 @@ from real_qt import RealQuadTree
 from trees import TREE_DICT
 from clt import tree2rg
 from reparam import ReparamReLU, ReparamSoftplus
-from utils import num_of_params
-
+from utils import num_of_params, get_date_time_str
+from torch.utils.tensorboard import SummaryWriter
 
 # cirkit
 from cirkit.models.tensorized_circuit import TensorizedPC
@@ -31,7 +31,8 @@ from cirkit.region_graph.quad_tree import QuadTree
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--gpu",            type=int, help="Which gpu to use")
+parser.add_argument("--gpu",        type=int,                               help="Which gpu to use")
+parser.add_argument("--log-dir",    type=str,       default="benchmark",    help="Base dir for saving the model")
 parser.set_defaults(train_mode=True)
 parser.add_argument('--train-mode', dest='train',   action='store_true',    help='benchmark in training mode')
 parser.add_argument('--test-mode',  dest='train',   action='store_false',   help='benchmark in test mode')
@@ -132,4 +133,31 @@ time_per_batch = time_per_batch[1:]
 mu_t, sigma_t = np.mean(time_per_batch), np.std(time_per_batch)
 print(f"Time (ms): {mu_t:.3f}+-{sigma_t:.3f}")
 if device != "cpu":
-    print(f"Memory (GiB): {(torch.cuda.max_memory_allocated() / 1024 ** 3):.3f}")
+    gpu_allocated = torch.cuda.max_memory_allocated() / 1024 ** 3
+    gpu_reserved = torch.cuda.max_memory_reserved() / 1024 ** 3
+    print(f"GPU memory allocated (GiB): {gpu_allocated:.3f}")
+    print(f"CPU memory reserved (GiB): {gpu_allocated:.3f}")
+
+#######################################################################################################
+######################################### save results ################################################
+#######################################################################################################
+
+writer = SummaryWriter(log_dir=os.path.join(args.log_dir, get_date_time_str()))
+writer.add_hparams(
+    hparam_dict=vars(args),
+    metric_dict={
+        'num_params':       num_of_params(pc),
+        'time_avg':         mu_t,
+        'time_std':         sigma_t,
+        'gpu_allocated':    gpu_allocated if device != "cpu" else 0,
+        'gpu_reserved':     gpu_reserved if device != "cpu" else 0
+    },
+    hparam_domain_discrete={
+        'dataset':      ['mnist', 'fashion_mnist', 'celeba'],
+        'rg':           [rg_name for rg_name in REGION_GRAPHS],
+        'layer':        [layer for layer in LAYER_TYPES],
+        'input_type':   [input_type for input_type in INPUT_TYPES],
+        'reparam':      [reparam for reparam in REPARAM_TYPES]
+    },
+)
+writer.close()
