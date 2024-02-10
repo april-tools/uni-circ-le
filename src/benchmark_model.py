@@ -102,7 +102,7 @@ def evaluate(
     batch: Tuple[Tensor]
     for batch in data_loader:
         x = batch[0].to(device)
-        ll, (t, m) = benchmarker(functools.partial(_iter, x))
+        ll, (t, m) = benchmarker(functools.partial(_iter, x), device=device)
         ts.append(t)
         ms.append(m)
         ll_total += ll.mean().item()
@@ -138,7 +138,7 @@ def train(
     batch: Tuple[Tensor]
     for batch in data_loader:
         x = batch[0].to(device)
-        ll, (t, m) = benchmarker(functools.partial(_iter, x))
+        ll, (t, m) = benchmarker(functools.partial(_iter, x), device=device)
         ts.append(t)
         ms.append(m)
         ll_total += ll.item()
