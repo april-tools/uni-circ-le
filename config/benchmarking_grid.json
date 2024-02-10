@@ -1,9 +1,7 @@
 {
     "common":
     {
-      "results_csv": "results/benchmarking_amari.csv",
-      "max-num-epochs": 200,
-      "batch_size": 128
+      "results_csv": "results/benchmarking_amari.csv"
     },
     "datasets": ["mnist"],
     "grid":
@@ -20,6 +18,7 @@
         {
           "Dummy":
           {
+            "batch_size": 128
           }
         }
       }

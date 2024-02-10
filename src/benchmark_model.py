@@ -94,6 +94,7 @@ class _Modes(str, enum.Enum):  # TODO: StrEnum introduced in 3.11
 class _ArgsNamespace(argparse.Namespace):
     mode: _Modes = _Modes.TRAIN
     seed: int = 42
+    dataset: str = ""
     num_batches: int = 20
     batch_size: int = 128
     region_graph: str = ""
@@ -113,6 +114,7 @@ def process_args() -> _ArgsNamespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--mode", type=_Modes, choices=_Modes.__members__.values(), help="mode")
     parser.add_argument("--seed", type=int, help="seed, 0 for disable")
+    parser.add_argument("--dataset", type=str, help="Unused, required for grid experiment")
     parser.add_argument("--num_batches", type=int, help="num_batches")
     parser.add_argument("--batch_size", type=int, help="batch_size")
     parser.add_argument("--region_graph", type=str, help="region_graph to use")
