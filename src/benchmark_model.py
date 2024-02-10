@@ -53,6 +53,7 @@ class _ArgsNamespace(argparse.Namespace):
     layer: str = ""
     num_latents: int = 32  # TODO: rename this
     first_pass_only: bool = False
+    gpu: int = 0
     results_csv: str = ""
 
 
@@ -247,7 +248,7 @@ if __name__ == "__main__":
         "train_space_std": train_mu_t
     }
 
-    df = pd.DataFrame.from_dict(csv_row)
+    df = pd.DataFrame.from_dict([csv_row])
 
     if os.path.exists(args.results_csv):
         df.to_csv(args.results_csv, mode="a", index=False)
