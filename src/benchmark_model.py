@@ -6,6 +6,7 @@ from typing import List, Literal, Tuple
 import sys
 import os
 
+
 sys.path.append(os.path.join(os.getcwd(), "cirkit"))
 sys.path.append(os.path.join(os.getcwd(), "src"))
 
@@ -17,7 +18,8 @@ from torch.utils.data import DataLoader, TensorDataset
 
 from benchmark.utils.gpu_benchmark import benchmarker
 from cirkit.layers.input.exp_family import CategoricalLayer
-from cirkit.layers.sum_product.cp import CollapsedCPLayer, UncollapsedCPLayer
+from cirkit.layers.sum_product.tucker import TuckerLayer
+from cirkit.layers.sum_product.cp import CollapsedCPLayer, SharedCPLayer
 from cirkit.models import TensorizedPC
 from cirkit.region_graph import RegionGraph
 from cirkit.utils import RandomCtx, set_determinism
@@ -48,8 +50,11 @@ class _ArgsNamespace(argparse.Namespace):
     num_batches: int = 20
     batch_size: int = 128
     region_graph: str = ""
+    layer: str = ""
     num_latents: int = 32  # TODO: rename this
     first_pass_only: bool = False
+    gpu: int = 0
+    results_csv: str = ""
 
 
 def process_args() -> _ArgsNamespace:
@@ -97,7 +102,7 @@ def evaluate(
     batch: Tuple[Tensor]
     for batch in data_loader:
         x = batch[0].to(device)
-        ll, (t, m) = benchmarker(functools.partial(_iter, x))
+        ll, (t, m) = benchmarker(functools.partial(_iter, x), device=device)
         ts.append(t)
         ms.append(m)
         ll_total += ll.mean().item()
@@ -133,7 +138,7 @@ def train(
     batch: Tuple[Tensor]
     for batch in data_loader:
         x = batch[0].to(device)
-        ll, (t, m) = benchmarker(functools.partial(_iter, x))
+        ll, (t, m) = benchmarker(functools.partial(_iter, x), device=device)
         ts.append(t)
         ms.append(m)
         ll_total += ll.item()
@@ -176,12 +181,20 @@ def do_benchmarking(args, mode: _Modes) -> None:
     'RQT':  RealQuadTree(width=28, height=28)
     }
 
+    # choose layer
+    LAYER_TYPES = {
+        "tucker": TuckerLayer,
+        "cp": CollapsedCPLayer,
+        "cp-shared": SharedCPLayer,
+    }
+
     assert args.region_graph in REGION_GRAPHS
     rg: RegionGraph = REGION_GRAPHS[args.region_graph]
+    layer = LAYER_TYPES[args.layer]
 
     pc = TensorizedPC.from_region_graph(
         rg,
-        layer_cls=CollapsedCPLayer,
+        layer_cls=layer,
         efamily_cls=CategoricalLayer,
         efamily_kwargs={"num_categories": 256},  # type: ignore[misc]
         num_inner_units=args.num_latents,
@@ -235,7 +248,7 @@ if __name__ == "__main__":
         "train_space_std": train_mu_t
     }
 
-    df = pd.DataFrame.from_dict(csv_row)
+    df = pd.DataFrame.from_dict([csv_row])
 
     if os.path.exists(args.results_csv):
         df.to_csv(args.results_csv, mode="a", index=False)
