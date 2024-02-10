@@ -1,7 +1,7 @@
 {
     "common":
     {
-      "results_csv": "results/benchmarking_amari.csv"
+      "results-csv": "results/benchmarking_amari.csv"
     },
     "datasets": ["mnist"],
     "grid":
