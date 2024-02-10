@@ -2,7 +2,7 @@ import argparse
 import enum
 import functools
 from dataclasses import dataclass
-from typing import List, Tuple
+from typing import List, Literal, Tuple
 import sys
 import os
 
@@ -10,6 +10,7 @@ sys.path.append(os.path.join(os.getcwd(), "cirkit"))
 sys.path.append(os.path.join(os.getcwd(), "src"))
 
 import numpy as np
+import pandas as pd
 import torch
 from torch import Tensor, optim
 from torch.utils.data import DataLoader, TensorDataset
@@ -26,6 +27,7 @@ from cirkit.region_graph.quad_tree import QuadTree
 from real_qt import RealQuadTree
 from clt import tree2rg
 from trees import TREE_DICT
+
 
 
 
@@ -61,10 +63,12 @@ def process_args() -> _ArgsNamespace:
     parser.add_argument("--seed", type=int, help="seed, 0 for disable")
     parser.add_argument("--num_batches", type=int, help="num_batches")
     parser.add_argument("--batch_size", type=int, help="batch_size")
-    parser.add_argument("--region_graph", type=str, help="region_graph filename")
+    parser.add_argument("--region_graph", type=str, help="region_graph to use")
+    parser.add_argument("--layer", type=str, help="Either 'cp', 'cp-shared' or 'tucker'")
     parser.add_argument("--num_latents", type=int, help="num_latents")
     parser.add_argument("--first_pass_only", action="store_true", help="first_pass_only")
     parser.add_argument("--gpu", type=int, help="Which gpu to use")
+    parser.add_argument("--results-csv", type=str, help="Path of the results csv (will be created if inexistent)")
     return parser.parse_args(namespace=_ArgsNamespace())
 
 
@@ -137,9 +141,9 @@ def train(
     return (ts, ms), ll_total / len(data_loader)
 
 
-def main() -> None:
+def do_benchmarking(args, mode: _Modes) -> None:
     """Execute the main procedure."""
-    args = process_args()
+
     assert args.region_graph, "Must provide a RG filename"
     if args.gpu >= 0:
         device = torch.device(f"cuda:{args.gpu}")
@@ -187,11 +191,11 @@ def main() -> None:
     print(pc)
     print(f"Number of parameters: {sum(p.numel() for p in pc.parameters())}")
 
-    if args.mode == _Modes.TRAIN:
+    if mode == _Modes.TRAIN:
         optimizer = optim.Adam(pc.parameters())  # just keep everything default
         (ts, ms), ll_train = train(pc, optimizer, data_loader, device=device)
         print("Train LL:", ll_train)
-    elif args.mode == _Modes.EVAL:
+    elif mode == _Modes.EVAL:
         (ts, ms), ll_eval = evaluate(pc, data_loader, device=device)
         print("Evaluation LL:", ll_eval)
     else:
@@ -201,9 +205,39 @@ def main() -> None:
         ts, ms = ts[1:], ms[1:]
     mu_t, sigma_t = np.mean(ts).item(), np.std(ts).item()  # type: ignore[misc]
     mu_m, sigma_m = np.mean(ms).item(), np.std(ms).item()  # type: ignore[misc]
+
     print(f"Time (ms): {mu_t:.3f}+-{sigma_t:.3f}")
     print(f"Memory (MiB): {mu_m:.3f}+-{sigma_m:.3f}")
 
+    return mu_t, sigma_t, mu_m, sigma_m
+
 
 if __name__ == "__main__":
-    main()
+    args = process_args()
+
+    # benchmark evaluation mode
+    eval_mu_t, eval_sigma_t, eval_mu_m, eval_sigma_m = do_benchmarking(args, mode="eval")
+    # benchmark training mode
+    train_mu_t, train_sigma_t, train_mu_m, train_sigma_m = do_benchmarking(args, mode="train")
+
+    csv_row = {
+        "rg": args.region_graph,
+        "layer": args.layer,
+        "k": args.num_latents,
+        "batch_size": args.batch_size,
+        "eval_time": eval_mu_t,
+        "eval_time_std": eval_sigma_t,
+        "eval_space": eval_mu_m,
+        "eval_space_std": eval_sigma_m,
+        "train_time": train_mu_t,
+        "train_time_std": train_sigma_t,
+        "train_space": train_mu_m,
+        "train_space_std": train_mu_t
+    }
+
+    df = pd.DataFrame.from_dict(csv_row)
+
+    if os.path.exists(args.results_csv):
+        df.to_csv(args.results_csv, mode="a", index=False)
+    else:
+        df.to_csv(args.results_csv, index=False)
