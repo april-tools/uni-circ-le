@@ -6,6 +6,8 @@ from typing import List, Literal, Tuple
 import sys
 import os
 
+from cirkit.layers.sum_product.tucker import TuckerLayer
+
 sys.path.append(os.path.join(os.getcwd(), "cirkit"))
 sys.path.append(os.path.join(os.getcwd(), "src"))
 
@@ -17,7 +19,7 @@ from torch.utils.data import DataLoader, TensorDataset
 
 from benchmark.utils.gpu_benchmark import benchmarker
 from cirkit.layers.input.exp_family import CategoricalLayer
-from cirkit.layers.sum_product.cp import CollapsedCPLayer, UncollapsedCPLayer
+from cirkit.layers.sum_product.cp import CollapsedCPLayer, SharedCPLayer, UncollapsedCPLayer
 from cirkit.models import TensorizedPC
 from cirkit.region_graph import RegionGraph
 from cirkit.utils import RandomCtx, set_determinism
@@ -176,12 +178,20 @@ def do_benchmarking(args, mode: _Modes) -> None:
     'RQT':  RealQuadTree(width=28, height=28)
     }
 
+    # choose layer
+    LAYER_TYPES = {
+        "tucker": TuckerLayer,
+        "cp": CollapsedCPLayer,
+        "cp-shared": SharedCPLayer,
+    }
+
     assert args.region_graph in REGION_GRAPHS
     rg: RegionGraph = REGION_GRAPHS[args.region_graph]
+    layer = LAYER_TYPES[args.layer]
 
     pc = TensorizedPC.from_region_graph(
         rg,
-        layer_cls=CollapsedCPLayer,
+        layer_cls=layer,
         efamily_cls=CategoricalLayer,
         efamily_kwargs={"num_categories": 256},  # type: ignore[misc]
         num_inner_units=args.num_latents,
