@@ -300,6 +300,6 @@ if __name__ == "__main__":
     df = pd.DataFrame.from_dict([csv_row])
 
     if os.path.exists(args.results_csv):
-        df.to_csv(args.results_csv, mode="a", index=False)
+        df.to_csv(args.results_csv, mode="a", index=False, header=False)
     else:
         df.to_csv(args.results_csv, index=False)
