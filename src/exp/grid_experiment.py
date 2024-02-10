@@ -35,8 +35,8 @@ def model_hparams(hps_grid: dict, common_hps_grid: dict) -> List[Tuple[Optional[
     return [(None, h) for h in hps]
 
 
-def build_command_string(dataset: str, model: str, hp: dict) -> str:
-    c = 'python src/training.py'
+def build_command_string(script: str, sdataset: str, model: str, hp: dict) -> str:
+    c = f'python {script}'
     c = f'{c} --dataset {dataset}'
     for k, v in hp.items():
         if isinstance(v, bool):
@@ -56,6 +56,9 @@ def device_next_id() -> int:
 
 parser = argparse.ArgumentParser(
     description="Experiment Grid Search Script"
+)
+parser.add_argument(
+    '--script', type=str, default='src/training.py', help="Script to run for single experiment"
 )
 parser.add_argument(
     '--config', type=str, help="Experiments grid search configuration file"
@@ -112,7 +115,7 @@ if __name__ == '__main__':
                 if exp_alias is not None:
                     hp['exp-alias'] = exp_alias
                 hp.update(common_hparams)
-                cmd = build_command_string(dataset, model, hp)
+                cmd = build_command_string(args.script, dataset, model, hp)
                 device = device_next_id() if multi_devices else common_hparams['device']
                 if args.num_repetitions == 1:
                     commands.append((cmd, device))
