@@ -1,0 +1,27 @@
+{
+    "common":
+    {
+      "results_csv": "results/benchmarking_amari.csv",
+      "max-num-epochs": 200,
+      "batch_size": 128
+    },
+    "datasets": ["mnist"],
+    "grid":
+    {
+      "common":
+      {
+        "region_graph": ["RQT", "PD", "QG", "CLT"],
+        "num_latents": [8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096],
+        "layer": ["cp", "cp-shared", "tucker"]
+      },
+      "models":
+      {
+        "mnist":
+        {
+          "Dummy":
+          {
+          }
+        }
+      }
+    }
+  }
