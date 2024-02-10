@@ -6,7 +6,6 @@ from typing import List, Literal, Tuple
 import sys
 import os
 
-from cirkit.layers.sum_product.tucker import TuckerLayer
 
 sys.path.append(os.path.join(os.getcwd(), "cirkit"))
 sys.path.append(os.path.join(os.getcwd(), "src"))
@@ -19,7 +18,8 @@ from torch.utils.data import DataLoader, TensorDataset
 
 from benchmark.utils.gpu_benchmark import benchmarker
 from cirkit.layers.input.exp_family import CategoricalLayer
-from cirkit.layers.sum_product.cp import CollapsedCPLayer, SharedCPLayer, UncollapsedCPLayer
+from cirkit.layers.sum_product.tucker import TuckerLayer
+from cirkit.layers.sum_product.cp import CollapsedCPLayer, SharedCPLayer
 from cirkit.models import TensorizedPC
 from cirkit.region_graph import RegionGraph
 from cirkit.utils import RandomCtx, set_determinism
