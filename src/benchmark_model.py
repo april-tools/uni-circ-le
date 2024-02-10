@@ -50,8 +50,10 @@ class _ArgsNamespace(argparse.Namespace):
     num_batches: int = 20
     batch_size: int = 128
     region_graph: str = ""
+    layer: str = ""
     num_latents: int = 32  # TODO: rename this
     first_pass_only: bool = False
+    results_csv: str = ""
 
 
 def process_args() -> _ArgsNamespace:
