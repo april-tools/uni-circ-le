@@ -1,15 +1,15 @@
 {
     "common":
     {
-      "results-csv": "results/benchmarking_amari.csv"
+      "results-csv": "results/benchmarking.csv"
     },
     "datasets": ["mnist"],
     "grid":
     {
       "common":
       {
-        "region_graph": ["RQT", "PD", "QG", "CLT"],
-        "num_latents": [8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096],
+        "region-graph": ["RQT", "PD", "QG", "CLT"],
+        "num-latents": [8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096],
         "layer": ["cp", "cp-shared", "tucker"]
       },
       "models":
@@ -18,7 +18,8 @@
         {
           "Dummy":
           {
-            "batch_size": 128
+            "batch-size": 128,
+            "num-steps": 250
           }
         }
       }
