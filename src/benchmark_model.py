@@ -220,11 +220,8 @@ if __name__ == "__main__":
         "cp-shared": SharedCPLayer,
     }
 
-    assert args.region_graph in REGION_GRAPHS
-    rg: RegionGraph = REGION_GRAPHS[args.region_graph]
-
     pc = TensorizedPC.from_region_graph(
-        rg,
+        rg=REGION_GRAPHS[args.region_graph],
         layer_cls=LAYER_TYPES[args.layer],
         efamily_cls=CategoricalLayer,
         efamily_kwargs={"num_categories": 256},  # type: ignore[misc]
