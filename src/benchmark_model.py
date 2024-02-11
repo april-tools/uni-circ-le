@@ -174,7 +174,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset",        type=str,                   help="Unused, required for grid experiment")
-    parser.add_argument("--num-steps",      type=int,                   help="num_steps")
+    parser.add_argument("--num-steps",      type=int,   default=250,    help="num_steps")
     parser.add_argument("--batch-size",     type=int,                   help="batch_size")
     parser.add_argument("--region-graph",   type=str,                   help="region_graph to use")
     parser.add_argument("--layer",          type=str,                   help="Either 'cp', 'cp-shared' or 'tucker'")
@@ -235,7 +235,7 @@ if __name__ == "__main__":
     print(f"Number of parameters: {num_params}")
 
     # benchmark evaluation mode
-    eval_mu_t, eval_sigma_t, eval_mu_m, eval_sigma_m = do_benchmarking(args, mode="eval")
+    test_mu_t, test_sigma_t, test_mu_m, test_sigma_m = do_benchmarking(args, mode="test")
     # benchmark training mode
     train_mu_t, train_sigma_t, train_mu_m, train_sigma_m = do_benchmarking(args, mode="train")
 
@@ -245,10 +245,10 @@ if __name__ == "__main__":
         "k": args.k,
         "num-params": num_params,
         "batch-size": args.batch_size,
-        "test-time": eval_mu_t,
-        "test-time-std": eval_sigma_t,
-        "test-space": eval_mu_m,
-        "test-space-std": eval_sigma_m,
+        "test-time": test_mu_t,
+        "test-time-std": test_sigma_t,
+        "test-space": test_mu_m,
+        "test-space-std": test_sigma_m,
         "train-time": train_mu_t,
         "train-time-std": train_sigma_t,
         "train-space": train_mu_m,
