@@ -108,7 +108,6 @@ def evaluate(
 
 def train(
     pc: TensorizedPC,
-    optimizer: optim.Optimizer,
     data_loader: DataLoader[Tuple[Tensor, ...]],
     device
 ) -> Tuple[Tuple[List[float], List[float]], float]:
@@ -134,7 +133,7 @@ def train(
 
     ll_total = 0.0
     ts, ms = [], []
-    batch: Tuple[Tensor]
+    optimizer = optim.Adam(pc.parameters())  # just keep everything default
     for batch in data_loader:
         x = batch[0].to(device)
         ll, (t, m) = benchmarker(functools.partial(_iter, x), device=device)
@@ -145,14 +144,11 @@ def train(
     return (ts, ms), ll_total / len(data_loader)
 
 
-def do_benchmarking(args, mode: str) -> None:
+def do_benchmarking(pc, data_loader, device, mode: str) -> None:
     """Execute the main procedure."""
 
-    device = torch.device(f"cuda:{args.gpu}") if args.gpu >= 0 else torch.device("cpu")
-
     if mode == "train":
-        optimizer = optim.Adam(pc.parameters())  # just keep everything default
-        (ts, ms), ll_train = train(pc, optimizer, data_loader, device=device)
+        (ts, ms), ll_train = train(pc, data_loader, device=device)
         print("Train LL:", ll_train)
     elif mode == "test":
         (ts, ms), ll_eval = evaluate(pc, data_loader, device=device)
@@ -164,26 +160,26 @@ def do_benchmarking(args, mode: str) -> None:
     mu_t, sigma_t = np.mean(ts).item(), np.std(ts).item()  # type: ignore[misc]
     mu_m, sigma_m = np.mean(ms).item(), np.std(ms).item()  # type: ignore[misc]
 
-    print(f"Time (ms): {mu_t:.3f}+-{sigma_t:.3f}")
-    print(f"Memory (GiB): {mu_m:.3f}+-{sigma_m:.3f}")
+    print(f"{mode} time (ms): {mu_t:.3f}+-{sigma_t:.3f}")
+    print(f"{mode} memory (GiB): {mu_m:.3f}+-{sigma_m:.3f}")
 
     return mu_t, sigma_t, mu_m, sigma_m
 
 
-if __name__ == "__main__":
+def main():
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--dataset",        type=str,                   help="Unused, required for grid experiment")
-    parser.add_argument("--num-steps",      type=int,   default=250,    help="num_steps")
-    parser.add_argument("--batch-size",     type=int,                   help="batch_size")
-    parser.add_argument("--region-graph",   type=str,                   help="region_graph to use")
-    parser.add_argument("--layer",          type=str,                   help="Either 'cp', 'cp-shared' or 'tucker'")
-    parser.add_argument("--k",              type=int,   default=128,    help="Num categories for mixtures")
-    parser.add_argument("--gpu",            type=int,                   help="Which gpu to use")
-    parser.add_argument("--results-csv",    type=str,                   help="Path of the results csv (will be created if inexistent)")
+    parser.add_argument("--dataset", type=str, help="Unused, required for grid experiment")
+    parser.add_argument("--num-steps", type=int, default=250, help="num_steps")
+    parser.add_argument("--batch-size", type=int, help="batch_size")
+    parser.add_argument("--region-graph", type=str, help="region_graph to use")
+    parser.add_argument("--layer", type=str, help="Either 'cp', 'cp-shared' or 'tucker'")
+    parser.add_argument("--k", type=int, default=128, help="Num categories for mixtures")
+    parser.add_argument("--gpu", type=int, help="Which gpu to use")
+    parser.add_argument("--results-csv", type=str, help="Path of the results csv (will be created if inexistent)")
     args = parser.parse_args()
     print(args)
-    device = torch.device(f"cuda:{args.gpu}") if args.gpu >= 0 else torch.device("cpu")
+    device = f"cuda:{args.gpu}" if torch.cuda.is_available() and args.gpu is not None else "cpu"
 
     ######################################################################################
     ################################## create fake fata ##################################
@@ -206,11 +202,11 @@ if __name__ == "__main__":
 
     # create RG
     REGION_GRAPHS = {
-        'QG':   QuadTree(width=28, height=28, struct_decomp=False),
-        'QT':   QuadTree(width=28, height=28, struct_decomp=True),
-        'PD':   PoonDomingos(shape=(28, 28), delta=4),
-        'CLT':  tree2rg(TREE_DICT["mnist"]),
-        'RQT':  RealQuadTree(width=28, height=28)
+        'QG': QuadTree(width=28, height=28, struct_decomp=False),
+        'QT': QuadTree(width=28, height=28, struct_decomp=True),
+        'PD': PoonDomingos(shape=(28, 28), delta=4),
+        'CLT': tree2rg(TREE_DICT["mnist"]),
+        'RQT': RealQuadTree(width=28, height=28)
     }
 
     # choose layer
@@ -232,9 +228,9 @@ if __name__ == "__main__":
     print(f"Number of parameters: {num_params}")
 
     # benchmark evaluation mode
-    test_mu_t, test_sigma_t, test_mu_m, test_sigma_m = do_benchmarking(args, mode="test")
+    test_mu_t, test_sigma_t, test_mu_m, test_sigma_m = do_benchmarking(pc, data_loader, device, mode="test")
     # benchmark training mode
-    train_mu_t, train_sigma_t, train_mu_m, train_sigma_m = do_benchmarking(args, mode="train")
+    train_mu_t, train_sigma_t, train_mu_m, train_sigma_m = do_benchmarking(pc, data_loader, device, mode="train")
 
     csv_row = {
         "rg": args.region_graph,
@@ -257,3 +253,7 @@ if __name__ == "__main__":
         df.to_csv(args.results_csv, mode="a", index=False, header=False)
     else:
         df.to_csv(args.results_csv, index=False)
+
+
+if __name__ == "__main__":
+    main()
