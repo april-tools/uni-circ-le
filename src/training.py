@@ -8,7 +8,7 @@ import functools
 print = functools.partial(print, flush=True)
 
 from torch.utils.tensorboard import SummaryWriter
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader
 from tqdm import tqdm
 import numpy as np
 import argparse
@@ -18,7 +18,8 @@ import time
 from trees import TREE_DICT
 from clt import tree2rg
 from reparam import ReparamReLU, ReparamSoftplus
-from utils import load_dataset, check_validity_params, init_random_seeds, get_date_time_str, num_of_params
+from utils import check_validity_params, init_random_seeds, get_date_time_str, num_of_params
+from datasets import load_dataset
 from measures import eval_loglikelihood_batched, ll2bpd
 
 
@@ -54,7 +55,6 @@ parser.add_argument("--batch-size",     type=int,   default=128,        help="ba
 parser.add_argument("--progressbar",    type=bool,  default=False,      help="Print the progress bar")
 parser.add_argument("--t0",             type=int,   default=1,          help='sched CAWR t0, 1 for fixed lr ')
 parser.add_argument("--eta-min",        type=float, default=1e-4,       help='sched CAWR eta min')
-parser.add_argument("--valid_freq",     type=int,   default=None,       help='validation step every valid_freq steps')
 args = parser.parse_args()
 print(args)
 init_random_seeds(seed=args.seed)
@@ -85,9 +85,9 @@ if args.k_in is None: args.k_in = args.k
 ################### load dataset & create logging utils ###################
 ###########################################################################
 
-train, valid, test = load_dataset(args.dataset, device='cpu')
-image_size = int(np.sqrt(train[0].shape[0]))
-# loaders
+train, valid, test = load_dataset(args.dataset)
+image_size = int(np.sqrt(train[0].shape[0]))  # assumes squared images
+
 train_loader = DataLoader(train, batch_size=args.batch_size, shuffle=True, drop_last=True)
 valid_loader = DataLoader(valid, batch_size=args.batch_size, shuffle=False)
 test_loader = DataLoader(test, batch_size=args.batch_size, shuffle=False)
@@ -105,14 +105,11 @@ def make_path(base_dir, intermediate_dir: Literal["models", "logs"]):
         f"k_{args.k}",
         f"lr_{args.lr}",
         f"b_{args.batch_size}",
-        get_date_time_str() + ".mdl",
-    )
+        get_date_time_str() + ".mdl")
 
-# where to save the model
+
 save_model_path: str = make_path(args.model_dir, "models")
 save_log_path: str = make_path(args.model_dir, "logs")
-
-# model id is date_time_str
 model_id: str = os.path.splitext(os.path.basename(save_model_path))[0]
 writer = SummaryWriter(log_dir=os.path.join(os.path.dirname(save_log_path), model_id))
 if not os.path.exists(os.path.dirname(save_model_path)): os.makedirs(os.path.dirname(save_model_path))
@@ -169,27 +166,14 @@ patience_counter = args.patience
 tik_train = time.time()
 for epoch_count in range(1, args.max_num_epochs + 1):
 
-    if args.valid_freq is not None:
-        idx_batches = torch.randint(train.shape[0], size=(args.valid_freq * args.batch_size,)).split(args.batch_size)
-    else:
-        idx_batches = torch.randperm(train.shape[0]).split(args.batch_size)
-
-    pbar = enumerate(idx_batches)
-    if args.progressbar: pbar = tqdm(iterable=pbar, total=len(idx_batches), unit="steps", ascii=" ▖▘▝▗▚▞█", ncols=120)
+    pbar = train_loader
+    if args.progressbar: pbar = tqdm(iterable=pbar, total=len(pbar), unit="steps", ascii=" ▖▘▝▗▚▞█", ncols=120)
 
     train_ll = 0
+    for batch in pbar:
 
-    #for batch_count, idx in pbar:
-
-    for batch in train_loader:
-
-        # batch_x dimension: (batch_size, num_vars, num channels)
-        batch = batch.to(device)
-        if len(batch.shape) == 2: # for single channel datasets
-            batch = batch.unsqueeze(dim=-1)
-
+        batch = batch.to(device) # (batch_size, num_vars, num channels)
         log_likelihood = (pc(batch) - pc_pf(batch)).sum(dim=0)
-
         optimizer.zero_grad()
         (-log_likelihood).backward()
         train_ll += log_likelihood.item()
@@ -206,8 +190,8 @@ for epoch_count in range(1, args.max_num_epochs + 1):
                 else:
                     layer.params().data.clamp_(min=sqrt_eps)
 
-        #if args.progressbar and batch_count % 10 == 0: TODO: edit this
-        #    pbar.set_description(f"Epoch {epoch_count} Train LL={log_likelihood.item() / args.batch_size :.2f})")
+        # if args.progressbar and batch_count % 10 == 0:
+        #     pbar.set_description(f"Epoch {epoch_count} Train LL={log_likelihood.item() / args.batch_size :.2f})")
 
     train_ll = train_ll / len(train_loader.dataset)
     valid_ll = eval_loglikelihood_batched(pc, valid_loader, device=device)

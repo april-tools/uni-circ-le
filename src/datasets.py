@@ -12,23 +12,111 @@ import scipy.io as sp
 import torch
 from PIL import Image
 
+from emnist import extract_test_samples, extract_training_samples
 import torchvision.transforms as transforms
 from torchvision.datasets import CelebA
 from torch.utils.data import DataLoader, Dataset
 
 
-class CelebADataset(Dataset):
-    def __init__(self, root, split='all'):
 
-        # Set your desired transformations
+DEBD = [
+    "ad",
+    "accidents",
+    "baudio",
+    "bbc",
+    "bnetflix",
+    "book",
+    "c20ng",
+    "cr52",
+    "cwebkb",
+    "dna",
+    "jester",
+    "kdd",
+    "kosarek",
+    "moviereview",
+    "msnbc",
+    "msweb",
+    "nltcs",
+    "plants",
+    "pumsb_star",
+    "tmovie",
+    "tretail",
+    "voting",
+]
+
+MNIST = ["mnist", "fashion_mnist", "balanced", "byclass", "letters", "e_mnist"]
+
+
+
+def load_dataset(name: str):
+    """
+    :param name: dataset name (one of DEBD or MNIST datasets)
+    :return: train_x, valid_x, test_x
+    """
+
+    if name in DEBD:
+        train_x, test_x, valid_x = load_debd(name, dtype="float32")
+    elif name in MNIST:
+        if name in ["fashion_mnist", "mnist"]:
+            if name == "fashion_mnist":
+                (
+                    train_x,
+                    train_labels,
+                    test_x,
+                    test_labels,
+                ) = load_fashion_mnist()
+            else:
+                train_x, train_labels, test_x, test_labels = load_mnist()
+
+            valid_x = train_x[-3000:, :]
+            train_x = train_x[:-3000, :]
+
+            # print(Counter(train_labels[-3000:]))
+
+        elif name in ["balanced", "byclass", "letters", "e_mnist"]:
+            if name == "e_mnist":
+                name = "mnist"
+            train_x, train_labels = extract_training_samples(name)
+            test_x, test_labels = extract_test_samples(name)
+
+            train_x = train_x.reshape(-1, 784)
+            test_x = test_x.reshape(-1, 784)
+
+            # TODO: fix here
+            percentage_5_train = int(train_x.shape[0] / 20)
+            valid_x = train_x[-percentage_5_train:, :]
+            train_x = train_x[:-percentage_5_train, :]
+
+            # print(Counter(train_labels[-percentage_5_train:]))
+        else:
+            raise AssertionError("Inconsistent mnist value ?!")
+
+    elif name == "celeba":
+        train_x = CelebADataset(root="../data/", split='train')
+        valid_x = CelebADataset(root="../data/", split='valid')
+        test_x = CelebADataset(root="../data/", split='test')
+        return train_x, valid_x, test_x
+    else:
+        raise AssertionError("Invalid dataset name")
+
+    train_x = TensorDataset(torch.Tensor(train_x).unsqueeze(-1))
+    valid_x = TensorDataset(torch.Tensor(valid_x).unsqueeze(-1))
+    test_x = TensorDataset(torch.Tensor(test_x).unsqueeze(-1))
+
+    return train_x, valid_x, test_x
+
+
+class CelebADataset(Dataset):
+
+    def __init__(self, root, split='all'):
         transform = transforms.Compose([
             transforms.CenterCrop((140, 140)),
-            transforms.Resize((64, 64)), # Resize images if necessary
-            transforms.ToTensor(),         # Convert PIL Image to Tensor
+            transforms.Resize((64, 64)),
+            transforms.ToTensor(),
             lambda x: x*255
         ])
 
-        self.celeba_dataset = CelebA(root=root, split=split, transform=transform)
+        self.celeba_dataset = CelebA(root=root, split=split, transform=transform, download=False)
 
     def __len__(self):
         return len(self.celeba_dataset)
@@ -36,6 +124,17 @@ class CelebADataset(Dataset):
     def __getitem__(self, idx):
         image, _ = self.celeba_dataset[idx]
         return torch.permute(image, dims=(1, 2, 0)).reshape(64*64, 3)
+
+
+class TensorDataset(Dataset):
+    def __init__(self, tensor):
+        self.tensor = tensor
+
+    def __len__(self):
+        return len(self.tensor)
+
+    def __getitem__(self, idx):
+        return self.tensor[idx]
 
 
 
