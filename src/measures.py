@@ -5,6 +5,7 @@ import torch
 
 from cirkit.models.functional import integrate
 from cirkit.models.tensorized_circuit import TensorizedPC
+from torch.utils.data import DataLoader
 
 
 def log_likelihoods(outputs, labels=None):
@@ -22,27 +23,19 @@ def log_likelihoods(outputs, labels=None):
 
 
 def eval_loglikelihood_batched(
-    pc: TensorizedPC, x: torch.Tensor, labels=None, batch_size=100, device: str = 'cpu'
+    pc: TensorizedPC, data_loader: DataLoader, labels=None, batch_size=100, device: str = 'cpu'
 ):
     """Computes log-likelihood in batched way."""
     with torch.no_grad():
 
         pc_pf = integrate(pc)
-        idx_batches = torch.arange(
-            0, x.shape[0], dtype=torch.int64, device=x.device
-        ).split(batch_size)
         ll_total = 0.0
-        for batch_count, idx in enumerate(idx_batches):
-            batch_x = x[idx, :].unsqueeze(dim=-1).to(device)
-            if labels is not None:
-                batch_labels = labels[idx].to(device)
-            else:
-                batch_labels = None
-
-            outputs = pc(batch_x)
-            ll_sample = log_likelihoods(outputs, batch_labels)
-            ll_total += (ll_sample - pc_pf(batch_x)).sum().item()
-        return ll_total
+        for batch in data_loader:
+            batch = batch.to(device)
+            outputs = pc(batch)
+            ll_sample = log_likelihoods(outputs, batch_labels=None)
+            ll_total += (ll_sample - pc_pf(batch)).sum().item()
+        return ll_total / len(data_loader.dataset)
 
 
 def get_outputs_batched(pc: TensorizedPC, x: torch.Tensor, batch_size=100):
@@ -66,13 +59,13 @@ def get_outputs_batched(pc: TensorizedPC, x: torch.Tensor, batch_size=100):
         return output
 
 
-def eval_bpd(pc: TensorizedPC, x: torch.Tensor, device: str = 'cpu') -> float:
+def eval_bpd(pc: TensorizedPC, data_loader: DataLoader, device: str = 'cpu') -> float:
     """
     Note: if ll is None then is computed, otherwise it is assumed that
     it has already been divided by the number of examples
     """
-    ll: float = eval_loglikelihood_batched(pc, x, device=device) / x.shape[0]
-    return -ll / (np.log(2) * pc.num_vars)  # TODO: check this
+    ll: float = eval_loglikelihood_batched(pc, data_loader, device=device)
+    return ll2bpd(ll, pc.num_vars)
 
 
 def ll2bpd(ll: float, num_vars: int) -> float:

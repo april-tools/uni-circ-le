@@ -12,6 +12,32 @@ import scipy.io as sp
 import torch
 from PIL import Image
 
+import torchvision.transforms as transforms
+from torchvision.datasets import CelebA
+from torch.utils.data import DataLoader, Dataset
+
+
+class CelebADataset(Dataset):
+    def __init__(self, root, split='all'):
+
+        # Set your desired transformations
+        transform = transforms.Compose([
+            transforms.CenterCrop((140, 140)),
+            transforms.Resize((64, 64)), # Resize images if necessary
+            transforms.ToTensor(),         # Convert PIL Image to Tensor
+            lambda x: x*255
+        ])
+
+        self.celeba_dataset = CelebA(root=root, split=split, transform=transform)
+
+    def __len__(self):
+        return len(self.celeba_dataset)
+
+    def __getitem__(self, idx):
+        image, _ = self.celeba_dataset[idx]
+        return torch.permute(image, dims=(1, 2, 0)).reshape(64*64, 3)
+
+
 
 def mkdir_p(path):
     """Linux mkdir -p"""

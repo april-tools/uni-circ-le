@@ -6,6 +6,7 @@ from collections import Counter
 import numpy as np
 import torch
 from emnist import extract_test_samples, extract_training_samples
+from torchvision.datasets import CelebA
 
 import datasets
 from cirkit.models.tensorized_circuit import TensorizedPC
@@ -36,6 +37,7 @@ DEBD = [
 ]
 
 MNIST = ["mnist", "fashion_mnist", "balanced", "byclass", "letters", "e_mnist"]
+
 
 
 def load_model(path: str, device="cpu") -> TensorizedPC:
@@ -90,6 +92,14 @@ def load_dataset(name: str, device):
             # print(Counter(train_labels[-percentage_5_train:]))
         else:
             raise AssertionError("Inconsistent mnist value ?!")
+
+    elif name == "celeba":
+
+        train_x = datasets.CelebADataset(root='src/data', split='train')
+        valid_x = datasets.CelebADataset(root='src/data', split='valid')
+        test_x = datasets.CelebADataset(root='src/data', split='test')
+
+        return train_x, valid_x, test_x
 
     else:
         raise AssertionError("Invalid dataset name")

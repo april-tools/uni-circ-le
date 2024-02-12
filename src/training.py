@@ -8,6 +8,7 @@ import functools
 print = functools.partial(print, flush=True)
 
 from torch.utils.tensorboard import SummaryWriter
+from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
 import numpy as np
 import argparse
@@ -85,6 +86,12 @@ if args.k_in is None: args.k_in = args.k
 ###########################################################################
 
 train, valid, test = load_dataset(args.dataset, device='cpu')
+image_size = int(np.sqrt(train[0].shape[0]))
+# loaders
+train_loader = DataLoader(train, batch_size=args.batch_size, shuffle=True, drop_last=True)
+valid_loader = DataLoader(valid, batch_size=args.batch_size, shuffle=False)
+test_loader = DataLoader(test, batch_size=args.batch_size, shuffle=False)
+
 
 def make_path(base_dir, intermediate_dir: Literal["models", "logs"]):
     return os.path.join(
@@ -115,11 +122,11 @@ if not os.path.exists(os.path.dirname(save_model_path)): os.makedirs(os.path.dir
 #######################################################################################
 
 REGION_GRAPHS = {
-    'QG':   QuadTree(width=28, height=28, struct_decomp=False),
-    'QT':   QuadTree(width=28, height=28, struct_decomp=True),
-    'PD':   PoonDomingos(shape=(28, 28), delta=4),
+    'QG':   QuadTree(width=image_size, height=image_size, struct_decomp=False),
+    'QT':   QuadTree(width=image_size, height=image_size, struct_decomp=True),
+    'PD':   PoonDomingos(shape=(image_size, image_size), delta=4),
     'CLT':  tree2rg(TREE_DICT[args.dataset]),
-    'RQT':  RealQuadTree(width=28, height=28)
+    'RQT':  RealQuadTree(width=image_size, height=image_size)
 }
 rg: RegionGraph = REGION_GRAPHS[args.rg]
 
@@ -156,7 +163,7 @@ scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=
 ################################ training loop ################################
 ###############################################################################
 
-best_valid_ll = eval_loglikelihood_batched(pc, valid, device=device) / valid.shape[0]
+best_valid_ll = -np.infty
 patience_counter = args.patience
 
 tik_train = time.time()
@@ -171,9 +178,17 @@ for epoch_count in range(1, args.max_num_epochs + 1):
     if args.progressbar: pbar = tqdm(iterable=pbar, total=len(idx_batches), unit="steps", ascii=" ▖▘▝▗▚▞█", ncols=120)
 
     train_ll = 0
-    for batch_count, idx in pbar:
-        batch_x = train[idx, :].unsqueeze(dim=-1).to(device)
-        log_likelihood = (pc(batch_x) - pc_pf(batch_x)).sum(dim=0)
+
+    #for batch_count, idx in pbar:
+
+    for batch in train_loader:
+
+        # batch_x dimension: (batch_size, num_vars, num channels)
+        batch = batch.to(device)
+        if len(batch.shape) == 2: # for single channel datasets
+            batch = batch.unsqueeze(dim=-1)
+
+        log_likelihood = (pc(batch) - pc_pf(batch)).sum(dim=0)
 
         optimizer.zero_grad()
         (-log_likelihood).backward()
@@ -191,11 +206,11 @@ for epoch_count in range(1, args.max_num_epochs + 1):
                 else:
                     layer.params().data.clamp_(min=sqrt_eps)
 
-        if args.progressbar and batch_count % 10 == 0:
-            pbar.set_description(f"Epoch {epoch_count} Train LL={log_likelihood.item() / args.batch_size :.2f})")
+        #if args.progressbar and batch_count % 10 == 0: TODO: edit this
+        #    pbar.set_description(f"Epoch {epoch_count} Train LL={log_likelihood.item() / args.batch_size :.2f})")
 
-    train_ll = train_ll / train.shape[0]
-    valid_ll = eval_loglikelihood_batched(pc, valid, device=device) / valid.shape[0]
+    train_ll = train_ll / len(train_loader.dataset)
+    valid_ll = eval_loglikelihood_batched(pc, valid_loader, device=device)
 
     print(f"[{epoch_count}-th valid step]", 'train LL %.2f, valid LL %.2f' % (train_ll, valid_ll))
     if device != "cpu": print('max allocated GPU: %.2f' % (torch.cuda.max_memory_allocated() / 1024 ** 3))
@@ -224,8 +239,8 @@ print(f'Overall training time: {train_time:.2f} (s)')
 #########################################################################
 
 pc = torch.load(save_model_path)
-best_train_ll = eval_loglikelihood_batched(pc, train, device=device) / train.shape[0]
-best_test_ll = eval_loglikelihood_batched(pc, test, device=device) / test.shape[0]
+best_train_ll = eval_loglikelihood_batched(pc, train_loader, device=device)
+best_test_ll = eval_loglikelihood_batched(pc, test_loader, device=device)
 
 print('train bpd: ', ll2bpd(best_train_ll, pc.num_vars))
 print('valid bpd: ', ll2bpd(best_valid_ll, pc.num_vars))
