@@ -33,7 +33,7 @@ def eval_loglikelihood_batched(
         for batch in data_loader:
             batch = batch.to(device)
             outputs = pc(batch)
-            ll_sample = log_likelihoods(outputs, batch_labels=None)
+            ll_sample = log_likelihoods(outputs, labels=None)
             ll_total += (ll_sample - pc_pf(batch)).sum().item()
         return ll_total / len(data_loader.dataset)
 
