@@ -65,8 +65,8 @@ def eval_bpd(pc: TensorizedPC, data_loader: DataLoader, device: str = 'cpu') -> 
     it has already been divided by the number of examples
     """
     ll: float = eval_loglikelihood_batched(pc, data_loader, device=device)
-    return ll2bpd(ll, pc.num_vars)
+    return ll2bpd(ll, pc.num_vars * pc.input_layer.num_channels)
 
 
-def ll2bpd(ll: float, num_vars: int) -> float:
-    return -ll / (np.log(2) * num_vars)
+def ll2bpd(ll: float, num_dims: int) -> float:
+    return -ll / (np.log(2) * num_dims)
