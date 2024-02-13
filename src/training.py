@@ -228,21 +228,22 @@ print(f'Overall training time: {train_time:.2f} (s)')
 ################################ testing ################################
 #########################################################################
 
-pc = torch.load(save_model_path)
+pc: TensorizedPC = torch.load(save_model_path)
 best_train_ll = eval_loglikelihood_batched(pc, train_loader, device=device)
 best_test_ll = eval_loglikelihood_batched(pc, test_loader, device=device)
 
-print('train bpd: ', ll2bpd(best_train_ll, pc.num_vars * num_channels))
-print('valid bpd: ', ll2bpd(best_valid_ll, pc.num_vars * num_channels))
-print('test  bpd: ', ll2bpd(best_test_ll, pc.num_vars * num_channels))
+print('train bpd: ', ll2bpd(best_train_ll, pc.num_vars * pc.input_layer.num_channels))
+print('valid bpd: ', ll2bpd(best_valid_ll, pc.num_vars * pc.input_layer.num_channels))
+print('test  bpd: ', ll2bpd(best_test_ll, pc.num_vars * pc.input_layer.num_channels))
+
 
 writer.add_hparams(
     hparam_dict=vars(args),
     metric_dict={
         'Best/Valid/ll':    float(best_valid_ll),
-        'Best/Valid/bpd':   float(ll2bpd(best_valid_ll, pc.num_vars)),
+        'Best/Valid/bpd':   float(ll2bpd(best_valid_ll, pc.num_vars * pc.input_layer.num_channels)),
         'Best/Test/ll':     float(best_test_ll),
-        'Best/Test/bpd':    float(ll2bpd(best_test_ll, pc.num_vars)),
+        'Best/Test/bpd':    float(ll2bpd(best_test_ll, pc.num_vars * pc.input_layer.num_channels)),
         'train_time':       float(train_time),
     },
     hparam_domain_discrete={
