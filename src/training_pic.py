@@ -51,6 +51,7 @@ parser.add_argument("--reparam",        type=str,   default="clamp",    help="Ei
 parser.add_argument("--max-num-epochs", type=int,   default=None,       help="Max num epoch")
 parser.add_argument("--batch-size",     type=int,   default=128,        help="batch size")
 parser.add_argument("--progressbar",    type=bool,  default=False,      help="Print the progress bar")
+parser.add_argument('--valid_freq',     type=int,   default=250,        help='validation every n steps')
 parser.add_argument("--t0",             type=int,   default=1,          help='sched CAWR t0, 1 for fixed lr ')
 parser.add_argument("--eta-min",        type=float, default=1e-4,       help='sched CAWR eta min')
 args = parser.parse_args()
@@ -143,15 +144,13 @@ def param_to_buffer(module):
     modules = module.modules()
     module = next(modules)
     for name, param in module.named_parameters(recurse=False):
-        print(name)
-        delattr(module, name) # Unregister parameter
+        delattr(module, name)  # Unregister parameter
         module.register_buffer(name, param.data)
     for module in modules:
         param_to_buffer(module)
 
-param_to_buffer(pc)
 
-print(len(list(pc.parameters())))
+param_to_buffer(pc)
 
 matrices_per_layer = []
 for layer in pc.inner_layers:
@@ -184,7 +183,10 @@ patience_counter = args.patience
 tik_train = time.time()
 for epoch_count in range(1, args.max_num_epochs + 1):
 
-    pbar = train_loader
+    if args.valid_freq is None:
+        pbar = train_loader
+    else:
+        pbar = DataLoader(train[torch.randint(len(train), size=(args.valid_freq * args.batch_size, ))], batch_size=args.batch_size)
     if args.progressbar: pbar = tqdm(iterable=pbar, total=len(pbar), unit="steps", ascii=" ▖▘▝▗▚▞█", ncols=120)
 
     train_ll = 0
