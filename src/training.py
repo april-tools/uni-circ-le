@@ -236,6 +236,7 @@ print('train bpd: ', ll2bpd(best_train_ll, pc.num_vars * pc.input_layer.num_chan
 print('valid bpd: ', ll2bpd(best_valid_ll, pc.num_vars * pc.input_layer.num_channels))
 print('test  bpd: ', ll2bpd(best_test_ll, pc.num_vars * pc.input_layer.num_channels))
 
+
 writer.add_hparams(
     hparam_dict=vars(args),
     metric_dict={
