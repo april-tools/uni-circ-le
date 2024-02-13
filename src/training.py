@@ -118,14 +118,18 @@ if not os.path.exists(os.path.dirname(save_model_path)): os.makedirs(os.path.dir
 ################################## instantiate model ##################################
 #######################################################################################
 
-REGION_GRAPHS = {
-    'QG':   QuadTree(width=image_size, height=image_size, struct_decomp=False),
-    'QT':   QuadTree(width=image_size, height=image_size, struct_decomp=True),
-    'PD':   PoonDomingos(shape=(image_size, image_size), delta=4),
-    'CLT':  tree2rg(TREE_DICT[args.dataset]),
-    'RQT':  RealQuadTree(width=image_size, height=image_size)
-}
-rg: RegionGraph = REGION_GRAPHS[args.rg]
+if args.rg == 'QG':
+    rg = QuadTree(width=image_size, height=image_size, struct_decomp=False)
+elif args.rg == 'QT':
+    rg = QuadTree(width=image_size, height=image_size, struct_decomp=True)
+elif args.rg == 'PD':
+    rg = PoonDomingos(shape=(image_size, image_size), delta=4)
+elif args.rg == 'CLT':
+    rg = tree2rg(TREE_DICT[args.dataset])
+elif args.rg == 'RQT':
+    rg = RealQuadTree(width=image_size, height=image_size)
+else:
+    raise NotImplementedError("region graph not available")
 
 efamily_kwargs: dict = {
     'cat': {'num_categories': 256},
@@ -181,7 +185,7 @@ for epoch_count in range(1, args.max_num_epochs + 1):
         optimizer.step()
         scheduler.step()
         check_validity_params(pc)
-        print(batch_count)
+
         # project params in inner layers TODO: remove or edit?
         if args.reparam == "clamp":
             for layer in pc.inner_layers:
@@ -241,7 +245,7 @@ writer.add_hparams(
     },
     hparam_domain_discrete={
         'dataset':      ['mnist', 'fashion_mnist', 'celeba'],
-        'rg':           [rg_name for rg_name in REGION_GRAPHS],
+        'rg':           ['QG', 'QT', 'PD', 'CLT', 'RQT'],
         'layer':        [layer for layer in LAYER_TYPES],
         'input_type':   [input_type for input_type in INPUT_TYPES],
         'reparam':      [reparam for reparam in REPARAM_TYPES]
