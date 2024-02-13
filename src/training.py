@@ -170,9 +170,9 @@ for epoch_count in range(1, args.max_num_epochs + 1):
     if args.progressbar: pbar = tqdm(iterable=pbar, total=len(pbar), unit="steps", ascii=" ▖▘▝▗▚▞█", ncols=120)
 
     train_ll = 0
-    for batch in pbar:
+    for batch_count, batch in enumerate(pbar):
 
-        batch = batch.to(device) # (batch_size, num_vars, num channels)
+        batch = batch.to(device)  # (batch_size, num_vars, num channels)
         log_likelihood = (pc(batch) - pc_pf(batch)).sum(dim=0)
         optimizer.zero_grad()
         (-log_likelihood).backward()
@@ -181,7 +181,7 @@ for epoch_count in range(1, args.max_num_epochs + 1):
         optimizer.step()
         scheduler.step()
         check_validity_params(pc)
-
+        print(batch_count)
         # project params in inner layers TODO: remove or edit?
         if args.reparam == "clamp":
             for layer in pc.inner_layers:
