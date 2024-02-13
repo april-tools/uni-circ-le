@@ -87,6 +87,7 @@ if args.k_in is None: args.k_in = args.k
 
 train, valid, test = load_dataset(args.dataset)
 image_size = int(np.sqrt(train[0].shape[0]))  # assumes squared images
+num_channels = train[0].shape[1]
 
 train_loader = DataLoader(train, batch_size=args.batch_size, shuffle=True, drop_last=True)
 valid_loader = DataLoader(valid, batch_size=args.batch_size, shuffle=False)
@@ -143,6 +144,7 @@ pc = TensorizedPC.from_region_graph(
     efamily_kwargs=efamily_kwargs,
     num_inner_units=args.k,
     num_input_units=args.k_in,
+    num_channels=num_channels,
     reparam=REPARAM_TYPES[args.reparam],
 ).to(device)
 print(f"Num of params: {num_of_params(pc)}")
