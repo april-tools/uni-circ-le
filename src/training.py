@@ -232,9 +232,9 @@ pc = torch.load(save_model_path)
 best_train_ll = eval_loglikelihood_batched(pc, train_loader, device=device)
 best_test_ll = eval_loglikelihood_batched(pc, test_loader, device=device)
 
-print('train bpd: ', ll2bpd(best_train_ll, pc.num_vars))
-print('valid bpd: ', ll2bpd(best_valid_ll, pc.num_vars))
-print('test  bpd: ', ll2bpd(best_test_ll, pc.num_vars))
+print('train bpd: ', ll2bpd(best_train_ll, pc.num_vars * num_channels))
+print('valid bpd: ', ll2bpd(best_valid_ll, pc.num_vars * num_channels))
+print('test  bpd: ', ll2bpd(best_test_ll, pc.num_vars * num_channels))
 
 writer.add_hparams(
     hparam_dict=vars(args),
