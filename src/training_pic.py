@@ -51,7 +51,7 @@ parser.add_argument("--reparam",        type=str,   default="clamp",    help="Ei
 parser.add_argument("--max-num-epochs", type=int,   default=None,       help="Max num epoch")
 parser.add_argument("--batch-size",     type=int,   default=128,        help="batch size")
 parser.add_argument("--progressbar",    type=bool,  default=False,      help="Print the progress bar")
-parser.add_argument('--valid_freq',     type=int,   default=250,        help='validation every n steps')
+parser.add_argument('--valid_freq',     type=int,   default=None,        help='validation every n steps')
 parser.add_argument("--t0",             type=int,   default=1,          help='sched CAWR t0, 1 for fixed lr ')
 parser.add_argument("--eta-min",        type=float, default=1e-4,       help='sched CAWR eta min')
 args = parser.parse_args()
