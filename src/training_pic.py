@@ -51,7 +51,7 @@ parser.add_argument("--reparam",        type=str,   default="clamp",    help="Ei
 parser.add_argument("--max-num-epochs", type=int,   default=None,       help="Max num epoch")
 parser.add_argument("--batch-size",     type=int,   default=128,        help="batch size")
 parser.add_argument("--progressbar",    type=bool,  default=False,      help="Print the progress bar")
-parser.add_argument('--valid_freq',     type=int,   default=None,        help='validation every n steps')
+parser.add_argument('--valid_freq',     type=int,   default=None,       help='validation every n steps')
 parser.add_argument("--t0",             type=int,   default=1,          help='sched CAWR t0, 1 for fixed lr ')
 parser.add_argument("--eta-min",        type=float, default=1e-4,       help='sched CAWR eta min')
 args = parser.parse_args()
@@ -212,7 +212,7 @@ for epoch_count in range(1, args.max_num_epochs + 1):
     train_ll = train_ll / len(train_loader.dataset)
     valid_ll = eval_loglikelihood_batched(pc, valid_loader, device=device)
 
-    print(f"[{epoch_count}-th valid step]", 'train LL %.2f, valid LL %.2f' % (train_ll, valid_ll))
+    print(f"[{epoch_count}-th valid step]", 'train LL %.5f, valid LL %.5f, best valid LL %.5f' % (train_ll, valid_ll, best_valid_ll))
     if device != "cpu": print('max allocated GPU: %.2f' % (torch.cuda.max_memory_allocated() / 1024 ** 3))
 
     # Not improved
@@ -246,7 +246,9 @@ for layer, chunk, in zip(pc.inner_layers[:-1], sum_param_chunks[:-1]):
 pc.inner_layers[-1].params_in.param = sum_param_chunks[-1][..., :1].view_as(pc.inner_layers[-1].params_in())
 pc.input_layer.params.param = leaf_param.unsqueeze(2)
 
-# todo check this pc_pf = integrate(pc)
+pc_pf = integrate(pc)
+print('norm const', pc_pf(None))
+
 best_train_ll = eval_loglikelihood_batched(pc, train_loader, device=device)
 best_test_ll = eval_loglikelihood_batched(pc, test_loader, device=device)
 
