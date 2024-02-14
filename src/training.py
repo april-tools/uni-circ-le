@@ -134,7 +134,7 @@ elif args.rg == 'RQT':
 else:
     raise NotImplementedError("region graph not available")
 
-#
+
 if args.layer == "cp-tucker":
     for inner_layer in rg.topological_layers(bottom_up=False)[1:-1]:
         LAYER_TYPES["cp-tucker"].append(CollapsedCPLayer)
@@ -156,6 +156,7 @@ pc = TensorizedPC.from_region_graph(
     num_channels=num_channels,
     reparam=REPARAM_TYPES[args.reparam],
 ).to(device)
+print(pc)
 print(f"Num of params: {num_of_params(pc)}")
 
 sqrt_eps = np.sqrt(torch.finfo(torch.get_default_dtype()).tiny)  # todo find better place
