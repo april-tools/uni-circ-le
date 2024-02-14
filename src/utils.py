@@ -38,7 +38,13 @@ def num_of_params(pc: TensorizedPC) -> int:
     num_param = sum(p.numel() for p in pc.input_layer.parameters())
     for layer in pc.inner_layers:
         num_param += sum(p.numel() for p in layer.parameters())
+    return num_param
 
+
+def count_pc_params(pc: TensorizedPC) -> int:
+    num_param = pc.input_layer.params.param.numel()
+    for layer in pc.inner_layers:
+        num_param += layer.params_in.param.numel()
     return num_param
 
 
@@ -61,3 +67,18 @@ def check_validity_params(pc: TensorizedPC):
                 raise AssertionError(f"NaN grad in {num}, {type(layer)}")
             elif torch.isinf(p.grad).any():
                 raise AssertionError(f"Inf grad in {num}, {type(layer)}")
+
+
+def param_to_buffer(module):
+    """Turns all parameters of a module into buffers."""
+    modules = module.modules()
+    module = next(modules)
+    for name, param in module.named_parameters(recurse=False):
+        delattr(module, name)  # Unregister parameter
+        module.register_buffer(name, param.data)
+    for module in modules:
+        param_to_buffer(module)
+
+
+def count_parameters(model):
+    return sum(p.numel() for p in model.parameters() if p.requires_grad)

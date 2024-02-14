@@ -17,8 +17,8 @@ import time
 
 from trees import TREE_DICT
 from clt import tree2rg
-from reparam import ReparamReLU, ReparamSoftplus
-from utils import check_validity_params, init_random_seeds, get_date_time_str, num_of_params
+from pic import PIC, zw_quadrature
+from utils import check_validity_params, init_random_seeds, get_date_time_str, count_parameters, count_pc_params, param_to_buffer
 from datasets import load_dataset
 from measures import eval_loglikelihood_batched, ll2bpd
 
@@ -26,7 +26,6 @@ from measures import eval_loglikelihood_batched, ll2bpd
 # cirkit
 from cirkit.models.tensorized_circuit import TensorizedPC
 from cirkit.models.functional import integrate
-from cirkit.reparams.leaf import ReparamExp, ReparamIdentity, ReparamLeaf, ReparamSoftmax
 from cirkit.layers.input.exp_family.categorical import CategoricalLayer
 from cirkit.layers.input.exp_family.binomial import BinomialLayer
 from cirkit.layers.sum_product import CollapsedCPLayer, TuckerLayer, SharedCPLayer
@@ -45,7 +44,6 @@ parser.add_argument("--lr",             type=float, default=0.1,        help="Pa
 parser.add_argument("--patience",       type=int,   default=5,          help='patience for early stopping')
 parser.add_argument("--weight-decay",   type=float, default=0,          help="Weight decay coefficient")
 parser.add_argument("--k",              type=int,   default=128,        help="Num categories for mixtures")
-parser.add_argument("--k-in",           type=int,   default=None,       help="Num input distributions per input region, if None then is equal to k",)
 parser.add_argument("--rg",             type=str,   default="QT",       help="Region graph: 'PD', 'QG', 'QT' or 'RQT'")
 parser.add_argument("--layer",          type=str,                       help="Layer type: 'tucker', 'cp' or 'cp-shared'")
 parser.add_argument("--input-type",     type=str,                       help="input type: either 'cat' or 'bin'")
@@ -67,20 +65,11 @@ LAYER_TYPES = {
     "cp-shared": SharedCPLayer,
 }
 INPUT_TYPES = {"cat": CategoricalLayer, "bin": BinomialLayer}
-REPARAM_TYPES = {
-    "exp": ReparamExp,
-    "relu": ReparamReLU,
-    "softplus": ReparamSoftplus,
-    "clamp": ReparamIdentity,
-    "softmax": ReparamSoftmax
-    # "exp_temp" will be added at run-time
-    # "softmax_temp" will be added at run-time
-}
+
 
 assert args.layer in LAYER_TYPES
 assert args.input_type in INPUT_TYPES
 device = f"cuda:{args.gpu}" if torch.cuda.is_available() and args.gpu is not None else "cpu"
-if args.k_in is None: args.k_in = args.k
 
 ###########################################################################
 ################### load dataset & create logging utils ###################
@@ -144,28 +133,38 @@ pc = TensorizedPC.from_region_graph(
     efamily_cls=INPUT_TYPES[args.input_type],
     efamily_kwargs=efamily_kwargs,
     num_inner_units=args.k,
-    num_input_units=args.k_in,
-    num_channels=num_channels,
-    reparam=REPARAM_TYPES[args.reparam],
+    num_input_units=args.k,
+    num_channels=num_channels
 ).to(device)
-print(f"Num of params: {num_of_params(pc)}")
+param_to_buffer(pc)
 
-sqrt_eps = np.sqrt(torch.finfo(torch.get_default_dtype()).tiny)  # todo find better place
-pc_pf: TensorizedPC = integrate(pc)
-torch.set_default_tensor_type("torch.FloatTensor")
+matrices_per_layer = []
+for layer in pc.inner_layers:
+    matrices_per_layer.append(layer.params_in().size()[:2].numel())
+
+pic = PIC(
+    n_inner_layers=np.sum(matrices_per_layer),
+    inner_layer_type='cp',
+    n_input_layers=pc.num_vars,
+    input_layer_type='categorical',
+    n_categories=256
+).to(device)
+
+print(f"QPC num of params: {count_pc_params(pc)}")
+print(f"PIC num of params: {count_parameters(pic)}")
 
 #######################################################################################
 ################################ optimizer & scheduler ################################
 #######################################################################################
 
-optimizer = torch.optim.Adam([
-    {'params': [p for p in pc.input_layer.parameters()]},
-    {'params': [p for layer in pc.inner_layers for p in layer.parameters()], 'weight_decay': args.weight_decay}], lr=args.lr)
+optimizer = torch.optim.Adam(pic.parameters(), lr=args.lr, weight_decay=args.weight_decay)
 scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=args.t0, T_mult=1, eta_min=args.eta_min)
 
 ###############################################################################
 ################################ training loop ################################
 ###############################################################################
+
+z, log_w = zw_quadrature('trapezoidal', nip=args.k, a=-1, b=1, device=device)  # steps = number of integration points = K
 
 best_valid_ll = -np.infty
 patience_counter = args.patience
@@ -182,8 +181,15 @@ for epoch_count in range(1, args.max_num_epochs + 1):
     train_ll = 0
     for batch_count, batch in enumerate(pbar):
 
+        sum_param, leaf_param = pic.quad(z=z, log_w=log_w)
+        sum_param_chunks = sum_param.split(matrices_per_layer, 0)
+        for layer, chunk, in zip(pc.inner_layers[:-1], sum_param_chunks[:-1]):
+            layer.params_in.param = chunk.view_as(layer.params_in())
+        pc.inner_layers[-1].params_in.param = sum_param_chunks[-1][..., :1].view_as(pc.inner_layers[-1].params_in())
+        pc.input_layer.params.param = leaf_param.unsqueeze(2)
+
         batch = batch.to(device)  # (batch_size, num_vars, num channels)
-        log_likelihood = (pc(batch) - pc_pf(batch)).sum(dim=0)
+        log_likelihood = pc(batch).sum(dim=0)
         optimizer.zero_grad()
         (-log_likelihood).backward()
         train_ll += log_likelihood.item()
@@ -192,21 +198,10 @@ for epoch_count in range(1, args.max_num_epochs + 1):
         scheduler.step()
         check_validity_params(pc)
 
-        # project params in inner layers TODO: remove or edit?
-        if args.reparam == "clamp":
-            for layer in pc.inner_layers:
-                if type(layer) in [CollapsedCPLayer, SharedCPLayer]: # note, those are collapsed but we should also include non collapsed versions
-                    layer.params_in().data.clamp_(min=sqrt_eps)
-                else:
-                    layer.params().data.clamp_(min=sqrt_eps)
-
-        # if args.progressbar and batch_count % 10 == 0:
-        #     pbar.set_description(f"Epoch {epoch_count} Train LL={log_likelihood.item() / args.batch_size :.2f})")
-
     train_ll = train_ll / len(train_loader.dataset)
     valid_ll = eval_loglikelihood_batched(pc, valid_loader, device=device)
 
-    print(f"[{epoch_count}-th valid step]", 'train LL %.2f, valid LL %.2f' % (train_ll, valid_ll))
+    print(f"[{epoch_count}-th valid step]", 'train LL %.5f, valid LL %.5f, best valid LL %.5f' % (train_ll, valid_ll, best_valid_ll))
     if device != "cpu": print('max allocated GPU: %.2f' % (torch.cuda.max_memory_allocated() / 1024 ** 3))
 
     # Not improved
@@ -217,7 +212,7 @@ for epoch_count in range(1, args.max_num_epochs + 1):
             break
     else:
         print("-> Saved model")
-        torch.save(pc, save_model_path)
+        torch.save(pic, save_model_path)
         best_valid_ll = valid_ll
         patience_counter = args.patience
 
@@ -232,30 +227,38 @@ print(f'Overall training time: {train_time:.2f} (s)')
 ################################ testing ################################
 #########################################################################
 
-pc: TensorizedPC = torch.load(save_model_path)
+pic = torch.load(save_model_path)
+sum_param, leaf_param = pic.quad(z=z, log_w=log_w)
+sum_param_chunks = sum_param.split(matrices_per_layer, 0)
+for layer, chunk, in zip(pc.inner_layers[:-1], sum_param_chunks[:-1]):
+    layer.params_in.param = chunk.view_as(layer.params_in())
+pc.inner_layers[-1].params_in.param = sum_param_chunks[-1][..., :1].view_as(pc.inner_layers[-1].params_in())
+pc.input_layer.params.param = leaf_param.unsqueeze(2)
+
+pc_pf = integrate(pc)
+print('norm const', pc_pf(None))
+
 best_train_ll = eval_loglikelihood_batched(pc, train_loader, device=device)
 best_test_ll = eval_loglikelihood_batched(pc, test_loader, device=device)
 
-print('train bpd: ', ll2bpd(best_train_ll, pc.num_vars * pc.input_layer.num_channels))
-print('valid bpd: ', ll2bpd(best_valid_ll, pc.num_vars * pc.input_layer.num_channels))
-print('test  bpd: ', ll2bpd(best_test_ll, pc.num_vars * pc.input_layer.num_channels))
-
+print('train bpd: ', ll2bpd(best_train_ll, pc.num_vars * num_channels))
+print('valid bpd: ', ll2bpd(best_valid_ll, pc.num_vars * num_channels))
+print('test  bpd: ', ll2bpd(best_test_ll, pc.num_vars * num_channels))
 
 writer.add_hparams(
     hparam_dict=vars(args),
     metric_dict={
         'Best/Valid/ll':    float(best_valid_ll),
-        'Best/Valid/bpd':   float(ll2bpd(best_valid_ll, pc.num_vars * pc.input_layer.num_channels)),
+        'Best/Valid/bpd':   float(ll2bpd(best_valid_ll, pc.num_vars)),
         'Best/Test/ll':     float(best_test_ll),
-        'Best/Test/bpd':    float(ll2bpd(best_test_ll, pc.num_vars * pc.input_layer.num_channels)),
+        'Best/Test/bpd':    float(ll2bpd(best_test_ll, pc.num_vars)),
         'train_time':       float(train_time),
     },
     hparam_domain_discrete={
         'dataset':      ['mnist', 'fashion_mnist', 'celeba'],
         'rg':           ['QG', 'QT', 'PD', 'CLT', 'RQT'],
         'layer':        [layer for layer in LAYER_TYPES],
-        'input_type':   [input_type for input_type in INPUT_TYPES],
-        'reparam':      [reparam for reparam in REPARAM_TYPES]
+        'input_type':   [input_type for input_type in INPUT_TYPES]
     },
 )
 writer.close()
