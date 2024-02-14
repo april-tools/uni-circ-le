@@ -182,7 +182,7 @@ def parameterize_pc(pc, sum_param, input_param):
         sum_param_chunks = sum_param.split(matrices_per_layer, 0)
         for layer, chunk, in zip(pc.inner_layers[:-1], sum_param_chunks[:-1]):
             layer.params_in.param = chunk.view_as(layer.params_in.param)
-        pc.inner_layers[-1].params_in.param = sum_param_chunks[-1][..., :1].view_as(pc.inner_layers[-1].params_in)
+        pc.inner_layers[-1].params_in.param = sum_param_chunks[-1][..., :1].view_as(pc.inner_layers[-1].params_in.param)
         pc.input_layer.params.param = input_param.unsqueeze(2)
     else:
         raise NotImplementedError('Tucker variant not ready yet')
