@@ -163,3 +163,34 @@ class PIC(nn.Module):
             return inner_param, input_param
         else:
             raise NotImplementedError('Tucker variant not ready yet')
+
+
+def parameterize_pc(pc, sum_param, input_param):
+    from cirkit.layers.sum_product import CollapsedCPLayer, TuckerLayer
+    # from cirkit.layers.sum import SumLayer
+
+    matrices_per_layer = []
+    for layer in pc.inner_layers:
+        if isinstance(layer, CollapsedCPLayer):
+            matrices_per_layer.append(layer.params_in.param.size()[:2].numel())
+        elif isinstance(layer, TuckerLayer):
+            matrices_per_layer.append(layer.params.param.size(0))
+        else:
+            raise Exception('layer not supported: ', type(layer))
+
+    if isinstance(layer, CollapsedCPLayer):
+        sum_param_chunks = sum_param.split(matrices_per_layer, 0)
+        for layer, chunk, in zip(pc.inner_layers[:-1], sum_param_chunks[:-1]):
+            layer.params_in.param = chunk.view_as(layer.params_in)
+        pc.inner_layers[-1].params_in.param = sum_param_chunks[-1][..., :1].view_as(pc.inner_layers[-1].params_in)
+        pc.input_layer.params.param = input_param.unsqueeze(2)
+    else:
+        raise NotImplementedError('Tucker variant not ready yet')
+
+"""
+for layer in pc.inner_layers:
+    if isinstance(layer, CollapsedCPLayer):
+        print(type(layer), layer.params_in.param.shape)
+    else:
+        print(type(layer), layer.params.param.shape)
+"""

@@ -17,7 +17,7 @@ import time
 
 from trees import TREE_DICT
 from clt import tree2rg
-from pic import PIC, zw_quadrature
+from pic import PIC, zw_quadrature, parameterize_pc
 from utils import check_validity_params, init_random_seeds, get_date_time_str, count_parameters, count_pc_params, param_to_buffer
 from datasets import load_dataset
 from measures import eval_loglikelihood_batched, ll2bpd
@@ -29,7 +29,6 @@ from cirkit.models.functional import integrate
 from cirkit.layers.input.exp_family.categorical import CategoricalLayer
 from cirkit.layers.input.exp_family.binomial import BinomialLayer
 from cirkit.layers.sum_product import CollapsedCPLayer, TuckerLayer, SharedCPLayer
-from cirkit.region_graph import RegionGraph
 from cirkit.region_graph.poon_domingos import PoonDomingos
 from cirkit.region_graph.quad_tree import QuadTree
 from real_qt import RealQuadTree
@@ -140,14 +139,15 @@ param_to_buffer(pc)
 
 matrices_per_layer = []
 for layer in pc.inner_layers:
-    matrices_per_layer.append(layer.params_in().size()[:2].numel())
+    matrices_per_layer.append(layer.params_in.param.size()[:2].numel())
 
 pic = PIC(
     n_inner_layers=np.sum(matrices_per_layer),
     inner_layer_type='cp',
     n_input_layers=pc.num_vars,
     input_layer_type='categorical',
-    n_categories=256
+    n_categories=256,
+    single_input_net=True
 ).to(device)
 
 print(f"QPC num of params: {count_pc_params(pc)}")
@@ -181,12 +181,8 @@ for epoch_count in range(1, args.max_num_epochs + 1):
     train_ll = 0
     for batch_count, batch in enumerate(pbar):
 
-        sum_param, leaf_param = pic.quad(z=z, log_w=log_w)
-        sum_param_chunks = sum_param.split(matrices_per_layer, 0)
-        for layer, chunk, in zip(pc.inner_layers[:-1], sum_param_chunks[:-1]):
-            layer.params_in.param = chunk.view_as(layer.params_in())
-        pc.inner_layers[-1].params_in.param = sum_param_chunks[-1][..., :1].view_as(pc.inner_layers[-1].params_in())
-        pc.input_layer.params.param = leaf_param.unsqueeze(2)
+        sum_param, input_param = pic.quad(z=z, log_w=log_w)
+        parameterize_pc(pc, sum_param, input_param)
 
         batch = batch.to(device)  # (batch_size, num_vars, num channels)
         log_likelihood = pc(batch).sum(dim=0)
@@ -229,11 +225,7 @@ print(f'Overall training time: {train_time:.2f} (s)')
 
 pic = torch.load(save_model_path)
 sum_param, leaf_param = pic.quad(z=z, log_w=log_w)
-sum_param_chunks = sum_param.split(matrices_per_layer, 0)
-for layer, chunk, in zip(pc.inner_layers[:-1], sum_param_chunks[:-1]):
-    layer.params_in.param = chunk.view_as(layer.params_in())
-pc.inner_layers[-1].params_in.param = sum_param_chunks[-1][..., :1].view_as(pc.inner_layers[-1].params_in())
-pc.input_layer.params.param = leaf_param.unsqueeze(2)
+parameterize_pc(pc, sum_param, input_param)
 
 pc_pf = integrate(pc)
 print('norm const', pc_pf(None))
