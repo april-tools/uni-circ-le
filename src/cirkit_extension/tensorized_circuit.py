@@ -236,10 +236,12 @@ class TensorizedPC(nn.Module):
             fold_mask = (fold_indices < cumulative_idx[-1]) if should_pad else None
 
             # TODO: check this AMARI edit
-            if type(layer_cls) == Type[SumProductLayer]:
-                current_layer_cls = layer_cls
-            else:
+            if isinstance(layer_cls, list):
                 current_layer_cls = layer_cls[rg_layer_idx-1]
+            else:
+                current_layer_cls = layer_cls
+
+
 
             layer = current_layer_cls(
                 num_input_units=num_inputs,
