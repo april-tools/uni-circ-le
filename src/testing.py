@@ -19,12 +19,11 @@ import time
 
 # cirkit
 from cirkit.models.functional import integrate
-from cirkit.models.tensorized_circuit import TensorizedPC
+from cirkit_extension.tensorized_circuit import TensorizedPC
 from cirkit.reparams.leaf import ReparamExp, ReparamIdentity, ReparamLeaf, ReparamSoftmax
 from cirkit.layers.input.exp_family.categorical import CategoricalLayer
 from cirkit.layers.input.exp_family.binomial import BinomialLayer
 from cirkit.layers.sum_product import CollapsedCPLayer, TuckerLayer, SharedCPLayer
-from cirkit.models.tensorized_circuit import TensorizedPC
 from cirkit.region_graph import RegionGraph
 from cirkit.region_graph.poon_domingos import PoonDomingos
 from cirkit.region_graph.quad_tree import QuadTree

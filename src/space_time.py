@@ -19,7 +19,7 @@ from utils import num_of_params, get_date_time_str
 from torch.utils.tensorboard import SummaryWriter
 
 # cirkit
-from cirkit.models.tensorized_circuit import TensorizedPC
+from cirkit_extension.tensorized_circuit import TensorizedPC
 from cirkit.models.functional import integrate
 from cirkit.reparams.leaf import ReparamExp, ReparamIdentity, ReparamLeaf, ReparamSoftmax
 from cirkit.layers.input.exp_family.categorical import CategoricalLayer

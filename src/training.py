@@ -24,7 +24,7 @@ from measures import eval_loglikelihood_batched, ll2bpd
 
 
 # cirkit
-from cirkit.models.tensorized_circuit import TensorizedPC
+from cirkit_extension.tensorized_circuit import TensorizedPC
 from cirkit.models.functional import integrate
 from cirkit.reparams.leaf import ReparamExp, ReparamIdentity, ReparamLeaf, ReparamSoftmax
 from cirkit.layers.input.exp_family.categorical import CategoricalLayer
@@ -65,6 +65,7 @@ LAYER_TYPES = {
     "tucker": TuckerLayer,
     "cp": CollapsedCPLayer,
     "cp-shared": SharedCPLayer,
+    "cp-tucker": []
 }
 INPUT_TYPES = {"cat": CategoricalLayer, "bin": BinomialLayer}
 REPARAM_TYPES = {
@@ -132,6 +133,13 @@ elif args.rg == 'RQT':
     rg = RealQuadTree(width=image_size, height=image_size)
 else:
     raise NotImplementedError("region graph not available")
+
+#
+if args.layer == "cp-tucker":
+    for inner_layer in rg.topological_layers(bottom_up=False)[1:-1]:
+        LAYER_TYPES["cp-tucker"].append(CollapsedCPLayer)
+    LAYER_TYPES["cp-tucker"].append(TuckerLayer)
+
 
 efamily_kwargs: dict = {
     'cat': {'num_categories': 256},

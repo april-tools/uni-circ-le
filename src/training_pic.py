@@ -24,7 +24,7 @@ from measures import eval_loglikelihood_batched, ll2bpd
 
 
 # cirkit
-from cirkit.models.tensorized_circuit import TensorizedPC
+from cirkit_extension.tensorized_circuit import TensorizedPC
 from cirkit.models.functional import integrate
 from cirkit.layers.input.exp_family.categorical import CategoricalLayer
 from cirkit.layers.input.exp_family.binomial import BinomialLayer

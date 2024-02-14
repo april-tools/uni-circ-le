@@ -80,7 +80,7 @@ def _square_from_buffer(buffer: List[List[RegionNode]], i: int, j: int) -> List[
 
 
 # pylint: disable-next=too-many-locals,invalid-name
-def RealQuadTree(width: int, height: int) -> RegionGraph:
+def RealQuadTree(width: int, height: int, final_sum=False) -> RegionGraph:
     """Get quad RG.
 
         Args:
@@ -141,8 +141,25 @@ def RealQuadTree(width: int, height: int) -> RegionGraph:
         old_buffer_height = buffer_height
         old_buffer_width = buffer_width
 
+    # add root
+    if final_sum:
+        roots = list(graph.output_nodes)
+        assert len(roots) == 1
+        root = roots[0]
+        partition_node = PartitionNode(root.scope)
+        mixed_root = RegionNode(root.scope)
+        graph.add_node(root)
+        graph.add_node(partition_node)
+        graph.add_edge(root, partition_node)
+        graph.add_edge(partition_node, mixed_root)
+
+
+
     assert graph.is_smooth
     assert graph.is_decomposable
-    assert graph.is_structured_decomposable
+
+    # note: why if adding a final sum is not structured decomposable anymore?
+    if not final_sum:
+        assert graph.is_structured_decomposable
 
     return graph

@@ -19,7 +19,7 @@ from torch.utils.data import DataLoader, TensorDataset
 from cirkit.layers.input.exp_family import CategoricalLayer
 from cirkit.layers.sum_product.tucker import TuckerLayer
 from cirkit.layers.sum_product.cp import CollapsedCPLayer, SharedCPLayer
-from cirkit.models import TensorizedPC
+from cirkit_extension.tensorized_circuit import TensorizedPC
 from cirkit.region_graph import RegionGraph
 from cirkit.utils import RandomCtx, set_determinism
 from cirkit.region_graph import RegionGraph

@@ -4,7 +4,7 @@ import numpy as np
 import torch
 
 from cirkit.models.functional import integrate
-from cirkit.models.tensorized_circuit import TensorizedPC
+from cirkit_extension.tensorized_circuit import TensorizedPC
 from torch.utils.data import DataLoader
 
 

@@ -5,7 +5,7 @@ import numpy as np
 import torch
 
 
-from cirkit.models.tensorized_circuit import TensorizedPC
+from cirkit_extension.tensorized_circuit import TensorizedPC
 
 
 def load_model(path: str, device="cpu") -> TensorizedPC:
