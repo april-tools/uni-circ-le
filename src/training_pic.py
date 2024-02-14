@@ -18,7 +18,7 @@ import time
 from trees import TREE_DICT
 from clt import tree2rg
 from pic import PIC, zw_quadrature
-from utils import check_validity_params, init_random_seeds, get_date_time_str, num_of_params
+from utils import check_validity_params, init_random_seeds, get_date_time_str, count_parameters, count_pc_params, param_to_buffer
 from datasets import load_dataset
 from measures import eval_loglikelihood_batched, ll2bpd
 
@@ -136,20 +136,6 @@ pc = TensorizedPC.from_region_graph(
     num_input_units=args.k,
     num_channels=num_channels
 ).to(device)
-print(f"Num of params: {num_of_params(pc)}")
-
-
-def param_to_buffer(module):
-    """Turns all parameters of a module into buffers."""
-    modules = module.modules()
-    module = next(modules)
-    for name, param in module.named_parameters(recurse=False):
-        delattr(module, name)  # Unregister parameter
-        module.register_buffer(name, param.data)
-    for module in modules:
-        param_to_buffer(module)
-
-
 param_to_buffer(pc)
 
 matrices_per_layer = []
@@ -163,6 +149,9 @@ pic = PIC(
     input_layer_type='categorical',
     n_categories=256
 ).to(device)
+
+print(f"QPC num of params: {count_pc_params(pc)}")
+print(f"PIC num of params: {count_parameters(pic)}")
 
 #######################################################################################
 ################################ optimizer & scheduler ################################
