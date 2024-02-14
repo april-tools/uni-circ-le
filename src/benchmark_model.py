@@ -1,8 +1,6 @@
 import argparse
-import enum
 import functools
-from dataclasses import dataclass
-from typing import List, Literal, Tuple
+from typing import List
 import sys
 import os
 
@@ -12,7 +10,6 @@ sys.path.append(os.path.join(os.getcwd(), "src"))
 
 import numpy as np
 import pandas as pd
-import torch
 from torch import Tensor, optim
 from torch.utils.data import DataLoader, TensorDataset
 
@@ -20,14 +17,11 @@ from cirkit.layers.input.exp_family import CategoricalLayer
 from cirkit.layers.sum_product.tucker import TuckerLayer
 from cirkit.layers.sum_product.cp import CollapsedCPLayer, SharedCPLayer
 from cirkit_extension.tensorized_circuit import TensorizedPC
-from cirkit.region_graph import RegionGraph
-from cirkit.utils import RandomCtx, set_determinism
-from cirkit.region_graph import RegionGraph
 from cirkit.region_graph.poon_domingos import PoonDomingos
 from cirkit.region_graph.quad_tree import QuadTree
-from real_qt import RealQuadTree
+from cirkit_extension.real_qt import RealQuadTree
 from clt import tree2rg
-from trees import TREE_DICT
+from cirkit_extension.trees import TREE_DICT
 
 
 from typing import Callable, Tuple, TypeVar

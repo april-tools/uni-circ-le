@@ -15,9 +15,9 @@ import argparse
 import torch
 import time
 
-from trees import TREE_DICT
+from cirkit_extension.trees import TREE_DICT
 from clt import tree2rg
-from reparam import ReparamReLU, ReparamSoftplus
+from cirkit_extension.reparam import ReparamReLU, ReparamSoftplus
 from utils import check_validity_params, init_random_seeds, get_date_time_str, num_of_params
 from datasets import load_dataset
 from measures import eval_loglikelihood_batched, ll2bpd
@@ -26,14 +26,13 @@ from measures import eval_loglikelihood_batched, ll2bpd
 # cirkit
 from cirkit_extension.tensorized_circuit import TensorizedPC
 from cirkit.models.functional import integrate
-from cirkit.reparams.leaf import ReparamExp, ReparamIdentity, ReparamLeaf, ReparamSoftmax
+from cirkit.reparams.leaf import ReparamExp, ReparamIdentity, ReparamSoftmax
 from cirkit.layers.input.exp_family.categorical import CategoricalLayer
 from cirkit.layers.input.exp_family.binomial import BinomialLayer
 from cirkit.layers.sum_product import CollapsedCPLayer, TuckerLayer, SharedCPLayer
-from cirkit.region_graph import RegionGraph
 from cirkit.region_graph.poon_domingos import PoonDomingos
 from cirkit.region_graph.quad_tree import QuadTree
-from real_qt import RealQuadTree
+from cirkit_extension.real_qt import RealQuadTree
 
 
 parser = argparse.ArgumentParser()

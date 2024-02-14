@@ -4,28 +4,27 @@ import time
 import sys
 import os
 
-sys.path.append(os.path.join(os.getcwd(), "cirkit"))
+sys.path.append(os.path.join(os.getcwd(), "../../cirkit/cirkit"))
 sys.path.append(os.path.join(os.getcwd(), "src"))
 print = functools.partial(print, flush=True)
 
 import numpy as np
 import torch
 
-from real_qt import RealQuadTree
-from trees import TREE_DICT
+from cirkit_extension.real_qt import RealQuadTree
+from cirkit_extension.trees import TREE_DICT
 from clt import tree2rg
-from reparam import ReparamReLU, ReparamSoftplus
+from cirkit_extension.reparam import ReparamReLU, ReparamSoftplus
 from utils import num_of_params, get_date_time_str
 from torch.utils.tensorboard import SummaryWriter
 
 # cirkit
 from cirkit_extension.tensorized_circuit import TensorizedPC
 from cirkit.models.functional import integrate
-from cirkit.reparams.leaf import ReparamExp, ReparamIdentity, ReparamLeaf, ReparamSoftmax
+from cirkit.reparams.leaf import ReparamExp, ReparamIdentity, ReparamSoftmax
 from cirkit.layers.input.exp_family.categorical import CategoricalLayer
 from cirkit.layers.input.exp_family.binomial import BinomialLayer
 from cirkit.layers.sum_product import CollapsedCPLayer, TuckerLayer, SharedCPLayer
-from cirkit.region_graph import RegionGraph
 from cirkit.region_graph.poon_domingos import PoonDomingos
 from cirkit.region_graph.quad_tree import QuadTree
 

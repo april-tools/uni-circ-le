@@ -1,10 +1,12 @@
 import sys
 import os
 from typing import Literal
+
 sys.path.append(os.path.join(os.getcwd(), "cirkit"))
 sys.path.append(os.path.join(os.getcwd(), "src"))
 
 import functools
+
 print = functools.partial(print, flush=True)
 
 from torch.utils.tensorboard import SummaryWriter
@@ -15,13 +17,13 @@ import argparse
 import torch
 import time
 
-from trees import TREE_DICT
+from cirkit_extension.trees import TREE_DICT
 from clt import tree2rg
 from pic import PIC, zw_quadrature, parameterize_pc
-from utils import check_validity_params, init_random_seeds, get_date_time_str, count_parameters, count_pc_params, param_to_buffer
+from utils import check_validity_params, init_random_seeds, get_date_time_str, count_parameters, count_pc_params, \
+    param_to_buffer
 from datasets import load_dataset
 from measures import eval_loglikelihood_batched, ll2bpd
-
 
 # cirkit
 from cirkit_extension.tensorized_circuit import TensorizedPC
@@ -31,8 +33,7 @@ from cirkit.layers.input.exp_family.binomial import BinomialLayer
 from cirkit.layers.sum_product import CollapsedCPLayer, TuckerLayer, SharedCPLayer
 from cirkit.region_graph.poon_domingos import PoonDomingos
 from cirkit.region_graph.quad_tree import QuadTree
-from real_qt import RealQuadTree
-
+from cirkit_extension.real_qt import RealQuadTree
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--seed",           type=int,   default=42,         help="Random seed")
@@ -57,14 +58,12 @@ args = parser.parse_args()
 print(args)
 init_random_seeds(seed=args.seed)
 
-
 LAYER_TYPES = {
     "tucker": TuckerLayer,
     "cp": CollapsedCPLayer,
     "cp-shared": SharedCPLayer,
 }
 INPUT_TYPES = {"cat": CategoricalLayer, "bin": BinomialLayer}
-
 
 assert args.layer in LAYER_TYPES
 assert args.input_type in INPUT_TYPES
@@ -164,7 +163,8 @@ scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=
 ################################ training loop ################################
 ###############################################################################
 
-z, log_w = zw_quadrature('trapezoidal', nip=args.k, a=-1, b=1, device=device)  # steps = number of integration points = K
+# steps = number of integration points = K
+z, log_w = zw_quadrature('trapezoidal', nip=args.k, a=-1, b=1, device=device)
 
 best_valid_ll = -np.infty
 patience_counter = args.patience
@@ -175,12 +175,13 @@ for epoch_count in range(1, args.max_num_epochs + 1):
     if args.valid_freq is None:
         pbar = train_loader
     else:
-        pbar = DataLoader(train[torch.randint(len(train), size=(args.valid_freq * args.batch_size, ))], batch_size=args.batch_size)
-    if args.progressbar: pbar = tqdm(iterable=pbar, total=len(pbar), unit="steps", ascii=" ▖▘▝▗▚▞█", ncols=120)
+        pbar = DataLoader(train[torch.randint(len(train), size=(args.valid_freq * args.batch_size,))],
+                          batch_size=args.batch_size)
+    if args.progressbar:
+        pbar = tqdm(iterable=pbar, total=len(pbar), unit="steps", ascii=" ▖▘▝▗▚▞█", ncols=120)
 
     train_ll = 0
     for batch_count, batch in enumerate(pbar):
-
         sum_param, input_param = pic.quad(z=z, log_w=log_w)
         parameterize_pc(pc, sum_param, input_param)
 
