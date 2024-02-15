@@ -41,3 +41,15 @@ fashion_mnist,256.0,RQT,cp,3.391801596,401.2849731,42
 fashion_mnist,32.0,RQT,cp,3.496335506,479.4313965,42
 fashion_mnist,512.0,RQT,cp,3.379607201,663.928894,42
 fashion_mnist,64.0,RQT,cp,3.441959143,325.2955322,42
+fashion_mnist,128,RQT,cp-shared,3.587512255,311.3070068,43
+fashion_mnist,16,RQT,cp-shared,3.810205221,590.0547485,43
+fashion_mnist,256,RQT,cp-shared,3.54988265,445.3861084,43
+fashion_mnist,32,RQT,cp-shared,3.742878914,556.3175049,43
+fashion_mnist,512,RQT,cp-shared,3.523420334,769.0320435,43
+fashion_mnist,64,RQT,cp-shared,3.643126965,278.091156,43
+fashion_mnist,128,RQT,cp,3.407387257,361.7504883,43
+fashion_mnist,16,RQT,cp,3.585901499,654.9389038,43
+fashion_mnist,256,RQT,cp,3.389882088,393.7740173,43
+fashion_mnist,32,RQT,cp,3.499691725,390.4341125,43
+fashion_mnist,512,RQT,cp,3.380826473,700.7086792,43
+fashion_mnist,64,RQT,cp,3.443011522,354.1272888,43
