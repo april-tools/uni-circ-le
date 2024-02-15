@@ -191,6 +191,6 @@ def parameterize_pc(pc, sum_param, input_param):
 for layer in pc.inner_layers:
     if isinstance(layer, CollapsedCPLayer):
         print(type(layer), layer.params_in.param.shape)
-    else:
+    else: # SumLayer or TuckerLayer
         print(type(layer), layer.params.param.shape)
 """

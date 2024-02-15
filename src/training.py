@@ -214,7 +214,7 @@ for epoch_count in range(1, args.max_num_epochs + 1):
     train_ll = train_ll / len(train_loader.dataset)
     valid_ll = eval_loglikelihood_batched(pc, valid_loader, device=device)
 
-    print(f"[{epoch_count}-th valid step]", 'train LL %.2f, valid LL %.2f' % (train_ll, valid_ll))
+    print(f"[{epoch_count}-th valid step]", 'train LL %.5f, valid LL %.5f, best valid LL %.5f' % (train_ll, valid_ll, best_valid_ll))
     if device != "cpu": print('max allocated GPU: %.2f' % (torch.cuda.max_memory_allocated() / 1024 ** 3))
 
     # Not improved

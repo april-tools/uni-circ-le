@@ -146,7 +146,8 @@ pic = PIC(
     n_input_layers=pc.num_vars,
     input_layer_type='categorical',
     n_categories=256,
-    single_input_net=True
+    single_input_net=True,
+    multi_heads_inner_net=True
 ).to(device)
 
 print(f"QPC num of params: {count_pc_params(pc)}")
