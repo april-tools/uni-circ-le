@@ -4,6 +4,7 @@ from typing import List
 import sys
 import os
 
+from cirkit_extension.cp_shared import ScaledSharedCPLayer
 
 sys.path.append(os.path.join(os.getcwd(), "cirkit"))
 sys.path.append(os.path.join(os.getcwd(), "src"))
@@ -208,6 +209,7 @@ def main():
         "tucker": TuckerLayer,
         "cp": CollapsedCPLayer,
         "cp-shared": SharedCPLayer,
+        "cp-shared-new": ScaledSharedCPLayer
     }
 
     pc = TensorizedPC.from_region_graph(
