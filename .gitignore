@@ -160,3 +160,4 @@ cython_debug/
 src/data
 out/
 experiments/
+config/
