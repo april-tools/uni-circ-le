@@ -4,7 +4,7 @@ from typing import List
 import sys
 import os
 
-from cirkit_extension.cp_shared import ScaledSharedCPLayer
+
 
 sys.path.append(os.path.join(os.getcwd(), "cirkit"))
 sys.path.append(os.path.join(os.getcwd(), "src"))
@@ -23,6 +23,7 @@ from cirkit.region_graph.quad_tree import QuadTree
 from cirkit_extension.real_qt import RealQuadTree
 from clt import tree2rg
 from cirkit_extension.trees import TREE_DICT
+from cirkit_extension.cp_shared import ScaledSharedCPLayer
 
 
 from typing import Callable, Tuple, TypeVar
