@@ -1,10 +1,12 @@
 import sys
 import os
 from typing import Literal
+
 sys.path.append(os.path.join(os.getcwd(), "cirkit"))
 sys.path.append(os.path.join(os.getcwd(), "src"))
 
 import functools
+from cirkit_extension.cp_shared import ScaledSharedCPLayer
 print = functools.partial(print, flush=True)
 
 from torch.utils.tensorboard import SummaryWriter
@@ -64,7 +66,8 @@ LAYER_TYPES = {
     "tucker": TuckerLayer,
     "cp": CollapsedCPLayer,
     "cp-shared": SharedCPLayer,
-    "cp-tucker": []
+    "cp-tucker": [],
+    "cp-shared-new": ScaledSharedCPLayer
 }
 INPUT_TYPES = {"cat": CategoricalLayer, "bin": BinomialLayer}
 REPARAM_TYPES = {
@@ -203,8 +206,11 @@ for epoch_count in range(1, args.max_num_epochs + 1):
         # project params in inner layers TODO: remove or edit?
         if args.reparam == "clamp":
             for layer in pc.inner_layers:
-                if type(layer) in [CollapsedCPLayer, SharedCPLayer]: # note, those are collapsed but we should also include non collapsed versions
+                # note, those are collapsed but we should also include non collapsed versions
+                if type(layer) in [CollapsedCPLayer, ScaledSharedCPLayer]:
                     layer.params_in().data.clamp_(min=sqrt_eps)
+                    if isinstance(layer, ScaledSharedCPLayer):
+                        layer.params_scale().data.clamp_(min=sqrt_eps)
                 else:
                     layer.params().data.clamp_(min=sqrt_eps)
 
