@@ -23,13 +23,12 @@ class ScaledSharedCPLayer(SharedCPLayer):
             fold_mask: Optional[Tensor] = None,
             reparam: ReparamFactory = ReparamIdentity,
     ) -> None:
-        assert fold_mask is None, "Folding parameters not yet implemented for ScaledSharedCPLayer"
         super().__init__(
             num_input_units=num_input_units,
             num_output_units=num_output_units,
             arity=arity,
             num_folds=num_folds,
-            fold_mask=None,
+            fold_mask=fold_mask,
             reparam=reparam
         )
 
