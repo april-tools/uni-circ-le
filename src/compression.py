@@ -163,79 +163,6 @@ def cp_slice_decomposition(tensor: torch.Tensor, rank: int, progressbar: bool = 
     return cp_a, cp_b, cp_c
 
 
-def cp_full_tensor_decomposition(
-    tensor: torch.Tensor,
-    cp_a: torch.Tensor,
-    cp_b: torch.Tensor,
-    cp_c: torch.Tensor,
-    cp_d: torch.Tensor,
-):
-    raise NotImplementedError
-    """
-    Given a (i, j, k, p) tensor, decomposes it into (i, r), (j, r), (k, r) and (p, r) matrices
-    :param tensor: tensor to slice-decompose
-    :param cp_a: tensor "container" for the first slice decompositions components
-    :param cp_b: container for the second component
-    :param cp_c: container for the third component
-    :param cp_d: container for the fourth component
-    :return:
-    """
-
-    set_backend("pytorch")
-    # TODO: change this
-    if torch.cuda.is_available():
-        torch.set_default_tensor_type("torch.cuda.FloatTensor")
-
-    # TODO: edit in future
-    method = "CP_NN"
-    if method == "CP_NN_HALS":
-        dec = tensorly.decomposition.non_negative_parafac_hals  # (rank=r)
-    elif method == "CP_NN":
-        dec = tensorly.decomposition.non_negative_parafac  # (rank = r)
-    else:
-        raise AssertionError("unknown method for decomposition")
-
-    with torch.no_grad():
-        assert len(tensor.shape) == 4
-        i, j, k, p = tensor.shape
-
-        r = cp_a.shape[1]
-
-        assert len(cp_a.shape) == 2 and cp_a.shape[0] == i
-        assert len(cp_b.shape) == 2 and cp_b.shape[0] == j
-        assert len(cp_c.shape) == 2 and cp_c.shape[0] == k
-        assert len(cp_d.shape) == 2 and cp_d.shape[0] == p
-
-        if k == 1:  # case 1 output sum
-            if r >= i / 2:
-                warnings.warn(
-                    f"Decomposition of a ({i, j, k}) tensor lead to {(i + j + k) * r} parameters"
-                )
-
-        (coeff, matrices), err_val = dec(
-            tensor, init="random", rank=r, return_errors=True
-        )
-        gc.collect()  # TODO: check if this is necessary
-
-        for m in matrices:
-            if torch.isnan(m).any():
-                assert not torch.isnan(m).any()
-            if torch.isinf(m).any():
-                assert not torch.isinf(m).any()
-
-        errors_mean = err_val
-        errors_std = 0
-
-        cp_a[:, :] = matrices[0]
-        cp_b[:, :] = matrices[1]
-        cp_c[:, :] = matrices[2]
-        cp_d[:, :] = matrices[3]
-
-    print(f"Decomposed tensor of shape {tensor.shape}")
-
-    return errors_mean, errors_std
-
-
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
@@ -254,7 +181,7 @@ if __name__ == "__main__":
     device = f"cuda:{args.gpu}" if torch.cuda.is_available() and args.gpu is not None else "cpu"
 
     # load model to compress
-    tucker_pc: TensorizedPC = torch.load(args.tucker_model_path)
+    tucker_pc: TensorizedPC = torch.load(args.tucker_model_path).to(device)
 
     # create RG: todo remove duplication of code
     if args.dataset in ["mnist", "fashion_mnist"]:
