@@ -57,6 +57,8 @@ parser.add_argument("--progressbar",    type=bool,  default=False,      help="Pr
 parser.add_argument('--valid_freq',     type=int,   default=None,       help='validation every n steps')
 parser.add_argument("--t0",             type=int,   default=1,          help='sched CAWR t0, 1 for fixed lr ')
 parser.add_argument("--eta-min",        type=float, default=1e-4,       help='sched CAWR eta min')
+parser.add_argument("--folding-bu",     type=bool,  default=False,       help='use bottom up folding?')
+
 args = parser.parse_args()
 print(args)
 init_random_seeds(seed=args.seed)
@@ -157,6 +159,7 @@ pc = TensorizedPC.from_region_graph(
     num_input_units=args.k_in,
     num_channels=num_channels,
     reparam=REPARAM_TYPES[args.reparam],
+    bottom_up_folding=args.folding_bu
 ).to(device)
 print(pc)
 print(f"Num of params: {num_of_params(pc)}")

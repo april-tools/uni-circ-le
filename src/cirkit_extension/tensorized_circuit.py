@@ -41,6 +41,7 @@ class TensorizedPC(nn.Module):
         num_input_units: int = 2,
         num_channels: int = 1,
         num_classes: int = 1,
+        bottom_up_folding: bool = False
     ) -> "TensorizedPC":
         """Construct a folded TensorizedPC given a region graph, layers and hyper-parameters.
 
@@ -81,7 +82,7 @@ class TensorizedPC(nn.Module):
             efamily_kwargs = {}
 
         # Algorithm 1 in the paper -- organize the PC in layers  NOT BOTTOM UP !!!
-        rg_layers = rg.topological_layers(bottom_up=False)
+        rg_layers = rg.topological_layers(bottom_up=bottom_up_folding)
 
         # Initialize input layer
         input_layer = efamily_cls(
