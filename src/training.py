@@ -207,7 +207,7 @@ for epoch_count in range(1, args.max_num_epochs + 1):
         if args.reparam == "clamp":
             for layer in pc.inner_layers:
                 # note, those are collapsed but we should also include non collapsed versions
-                if type(layer) in [CollapsedCPLayer, ScaledSharedCPLayer]:
+                if type(layer) in [CollapsedCPLayer, ScaledSharedCPLayer, SharedCPLayer]:
                     layer.params_in().data.clamp_(min=sqrt_eps)
                     if isinstance(layer, ScaledSharedCPLayer):
                         layer.params_scale().data.clamp_(min=sqrt_eps)
