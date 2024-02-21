@@ -156,6 +156,7 @@ pic = PIC2(
 
 print(f"QPC num of params: {count_pc_params(pc)}")
 print(f"PIC num of params: {count_parameters(pic)}")
+print(pic.inner_net[0].net[0] is pic.inner_net[1].net[0])
 
 #######################################################################################
 ################################ optimizer & scheduler ################################

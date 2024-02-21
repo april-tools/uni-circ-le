@@ -79,11 +79,12 @@ class CMatrixBlock(nn.Module):
         bias: Optional[bool] = False,
         sigma: Optional[float] = 1.0,
         learn_ff: Optional[bool] = False,
+        ff = None
     ):
         super().__init__()
         self.n_blocks = n_blocks
         self.net = nn.Sequential(
-            FourierLayer(2, net_dim, sigma, learnable=learn_ff),
+            FourierLayer(2, net_dim, sigma, learnable=learn_ff) if ff is None else ff,
             nn.Conv1d(net_dim, net_dim, 1, groups=1, bias=bias),
             nn.Tanh(),
             nn.Conv1d(n_blocks * net_dim, n_blocks, 1, groups=n_blocks, bias=bias),
@@ -129,7 +130,8 @@ class PIC2(nn.Module):
         self.n_categories = n_categories  # if input_layer_type is categorical, this specifies the number of categories
         self.multi_heads_input_net = multi_heads_input_net
         self.single_input_net = single_input_net
-        self.inner_net = nn.ModuleList([CMatrixBlock(n_blocks, net_dim=net_dim) for n_blocks in n_blocks_per_layer])
+        ff = FourierLayer(2, net_dim, sigma, learnable=learn_ff)
+        self.inner_net = nn.ModuleList([CMatrixBlock(n_blocks, net_dim=net_dim, ff=ff) for n_blocks in n_blocks_per_layer])
 
         input_dim = 1 if self.inner_layer_type == 'cp' else 2
         conv1_dim = 1 if multi_heads_input_net or single_input_net else n_input_layers
