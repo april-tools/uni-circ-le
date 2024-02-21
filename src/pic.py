@@ -85,8 +85,7 @@ class CMatrixBlock(nn.Module):
         self.n_blocks = n_blocks
         self.net = nn.Sequential(
             FourierLayer(2, net_dim, sigma, learnable=learn_ff) if ff is None else ff,
-            # nn.Conv1d(net_dim, net_dim, 1, groups=1, bias=bias), # todo
-            nn.Conv1d(n_blocks * net_dim, n_blocks * net_dim, 1, groups=n_blocks, bias=bias),
+            nn.Conv1d(net_dim, net_dim, 1, groups=1, bias=bias),
             nn.Tanh(),
             nn.Conv1d(n_blocks * net_dim, n_blocks, 1, groups=n_blocks, bias=bias),
             nn.Softplus())
@@ -95,8 +94,7 @@ class CMatrixBlock(nn.Module):
         assert z.ndim == 1
         nip = z.numel()
         self.net[0].flatten01 = False
-        self.net[1].groups = 1 # todo
-        self.net[3].groups = self.n_blocks # todo 1
+        self.net[3].groups = 1
         return self.net(torch.stack([z.repeat_interleave(nip), z.repeat(nip)]).t()).view(self.n_blocks, nip, nip)
 
 
