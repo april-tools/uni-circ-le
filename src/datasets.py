@@ -82,8 +82,7 @@ def load_dataset(name: str):
             train_x = train_x.reshape(-1, 784)
             test_x = test_x.reshape(-1, 784)
 
-            # TODO: fix here
-            percentage_5_train = int(train_x.shape[0] / 20)
+            percentage_5_train = int(train_x.shape[0] / 5)
             valid_x = train_x[-percentage_5_train:, :]
             train_x = train_x[:-percentage_5_train, :]
 
