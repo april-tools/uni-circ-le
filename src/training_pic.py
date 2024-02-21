@@ -53,6 +53,9 @@ parser.add_argument("--progressbar",    type=bool,  default=False,      help="Pr
 parser.add_argument('--valid_freq',     type=int,   default=None,       help='validation every n steps')
 parser.add_argument("--t0",             type=int,   default=1,          help='sched CAWR t0, 1 for fixed lr ')
 parser.add_argument("--eta-min",        type=float, default=1e-4,       help='sched CAWR eta min')
+parser.set_defaults(multi_head=False)
+parser.add_argument('-mh',   dest='multi_head',   action='store_true',        help='multi_head')
+parser.add_argument('-nmh',  dest='multi_head',   action='store_false',       help='multi_head')
 args = parser.parse_args()
 print(args)
 init_random_seeds(seed=args.seed)
@@ -146,7 +149,7 @@ pic = PIC(
     input_layer_type='categorical',
     n_categories=256,
     single_input_net=True,
-    multi_heads_inner_net=False
+    multi_heads_inner_net=args.multi_head
 ).to(device)
 
 print(f"QPC num of params: {count_pc_params(pc)}")
