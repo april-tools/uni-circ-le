@@ -207,10 +207,13 @@ for epoch_count in range(1, args.max_num_epochs + 1):
     if device != "cpu": print('max allocated GPU: %.2f' % (torch.cuda.max_memory_allocated() / 1024 ** 3))
 
     # Not improved
-    if valid_ll <= best_valid_ll:
+    if valid_ll <= best_valid_ll or np.isnan(valid_ll):
         patience_counter -= 1
-        if patience_counter == 0:
+        if patience_counter == 0 or np.isnan(valid_ll):
             print("-> Validation LL did not improve, early stopping")
+            break
+        if np.isnan(valid_ll):
+            print("-> NaN!")
             break
     else:
         print("-> Saved model")
