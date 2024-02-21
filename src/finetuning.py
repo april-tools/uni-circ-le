@@ -22,8 +22,7 @@ from clt import tree2rg
 from cirkit_extension.reparam import ReparamReLU, ReparamSoftplus
 from utils import check_validity_params, init_random_seeds, get_date_time_str, num_of_params
 from datasets import load_dataset
-from measures import eval_loglikelihood_batched, ll2bpd
-
+from measures import eval_loglikelihood_batched, ll2bpd, eval_bpd
 
 # cirkit
 from cirkit_extension.tensorized_circuit import TensorizedPC
@@ -41,51 +40,24 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--seed",           type=int,   default=42,         help="Random seed")
 parser.add_argument("--gpu",            type=int,   default=0,          help="Device on which run the benchmark")
 parser.add_argument("--dataset",        type=str,   default="mnist",    help="Dataset for the experiment")
-parser.add_argument("--model-dir",      type=str,   default="out",      help="Base dir for saving the model")
-parser.add_argument("--lr",             type=float, default=0.1,        help="Path of the model to be loaded")
+parser.add_argument("--model-path",     type=str,                       help="Path of the model to finetune")
+parser.add_argument("--lr",             type=float, default=0.1,        help="learning rate")
+parser.add_argument("--rg",             type=str,                       help="'QG' or 'PD'")
+parser.add_argument("--rank",           type=str,                       help="Rank")
 parser.add_argument("--patience",       type=int,   default=5,          help='patience for early stopping')
 parser.add_argument("--weight-decay",   type=float, default=0,          help="Weight decay coefficient")
-parser.add_argument("--k",              type=int,   default=128,        help="Num categories for mixtures")
-parser.add_argument("--k-in",           type=int,   default=None,       help="Num input distributions per input region, if None then is equal to k",)
-parser.add_argument("--rg",             type=str,   default="QT",       help="Region graph: 'PD', 'QG', 'QT' or 'RQT'")
-parser.add_argument("--layer",          type=str,                       help="Layer type: 'tucker', 'cp' or 'cp-shared'")
-parser.add_argument("--input-type",     type=str,                       help="input type: either 'cat' or 'bin'")
-parser.add_argument("--reparam",        type=str,   default="clamp",    help="Either 'exp', 'relu', 'exp_temp' or 'clamp'")
 parser.add_argument("--max-num-epochs", type=int,   default=None,       help="Max num epoch")
 parser.add_argument("--batch-size",     type=int,   default=128,        help="batch size")
 parser.add_argument("--progressbar",    type=bool,  default=False,      help="Print the progress bar")
 parser.add_argument('--valid_freq',     type=int,   default=None,       help='validation every n steps')
 parser.add_argument("--t0",             type=int,   default=1,          help='sched CAWR t0, 1 for fixed lr ')
 parser.add_argument("--eta-min",        type=float, default=1e-4,       help='sched CAWR eta min')
-parser.add_argument("--folding-bu",     type=bool,  default=False,       help='use bottom up folding?')
 
 args = parser.parse_args()
 print(args)
 init_random_seeds(seed=args.seed)
 
-
-LAYER_TYPES = {
-    "tucker": TuckerLayer,
-    "cp": CollapsedCPLayer,
-    "cp-shared": SharedCPLayer,
-    "cp-tucker": [],
-    "cp-shared-new": ScaledSharedCPLayer
-}
-INPUT_TYPES = {"cat": CategoricalLayer, "bin": BinomialLayer}
-REPARAM_TYPES = {
-    "exp": ReparamExp,
-    "relu": ReparamReLU,
-    "softplus": ReparamSoftplus,
-    "clamp": ReparamIdentity,
-    "softmax": ReparamSoftmax
-    # "exp_temp" will be added at run-time
-    # "softmax_temp" will be added at run-time
-}
-
-assert args.layer in LAYER_TYPES
-assert args.input_type in INPUT_TYPES
 device = f"cuda:{args.gpu}" if torch.cuda.is_available() and args.gpu is not None else "cpu"
-if args.k_in is None: args.k_in = args.k
 
 ###########################################################################
 ################### load dataset & create logging utils ###################
@@ -115,58 +87,31 @@ def make_path(base_dir, intermediate_dir: Literal["models", "logs"]):
         get_date_time_str() + ".mdl")
 
 
-save_model_path: str = make_path(args.model_dir, "models")
-save_log_path: str = make_path(args.model_dir, "logs")
-model_id: str = os.path.splitext(os.path.basename(save_model_path))[0]
-writer = SummaryWriter(log_dir=os.path.join(os.path.dirname(save_log_path), model_id))
-if not os.path.exists(os.path.dirname(save_model_path)): os.makedirs(os.path.dirname(save_model_path))
+base_name: str = os.path.splitext(os.path.basename(args.model_path))[0]
+save_model_path: str = os.path.join(os.path.dirname(args.model_path), base_name + "finetuned.mdl")
+writer = SummaryWriter(log_dir=os.path.dirname(save_model_path))
 
 #######################################################################################
 ################################## instantiate model ##################################
 #######################################################################################
-
-if args.rg == 'QG':
-    rg = QuadTree(width=image_size, height=image_size, struct_decomp=False)
-elif args.rg == 'QT':
-    rg = QuadTree(width=image_size, height=image_size, struct_decomp=True)
-elif args.rg == 'PD':
-    rg = PoonDomingos(shape=(image_size, image_size), delta=4)
-elif args.rg == 'CLT':
-    rg = tree2rg(TREE_DICT[args.dataset])
-elif args.rg == 'RQT':
-    rg = RealQuadTree(width=image_size, height=image_size)
-else:
-    raise NotImplementedError("region graph not available")
-
-
-if args.layer == "cp-tucker":
-    for inner_layer in rg.topological_layers(bottom_up=False)[1:-1]:
-        LAYER_TYPES["cp-tucker"].append(CollapsedCPLayer)
-    LAYER_TYPES["cp-tucker"].append(TuckerLayer)
-
-
-efamily_kwargs: dict = {
-    'cat': {'num_categories': 256},
-    'bin': {'n': 256}
-}[args.input_type]
-
-pc = TensorizedPC.from_region_graph(
-    rg=rg,
-    layer_cls=LAYER_TYPES[args.layer],
-    efamily_cls=INPUT_TYPES[args.input_type],
-    efamily_kwargs=efamily_kwargs,
-    num_inner_units=args.k,
-    num_input_units=args.k_in,
-    num_channels=num_channels,
-    reparam=REPARAM_TYPES[args.reparam],
-    bottom_up_folding=args.folding_bu
-).to(device)
+pc: TensorizedPC = torch.load(args.model_path)
 print(pc)
 print(f"Num of params: {num_of_params(pc)}")
 
 sqrt_eps = np.sqrt(torch.finfo(torch.get_default_dtype()).tiny)  # todo find better place
 pc_pf: TensorizedPC = integrate(pc)
 torch.set_default_tensor_type("torch.FloatTensor")
+
+#######################################################################################
+################################ eval model pre-finetuning ############################
+#######################################################################################
+
+compression_valid_bpd = eval_bpd(pc, valid_loader, device)
+compression_test_bpd = eval_bpd(pc, test_loader, device)
+
+print('Pre-finetuning')
+print('valid bpd: ', compression_valid_bpd)
+print('test  bpd: ', compression_test_bpd)
 
 #######################################################################################
 ################################ optimizer & scheduler ################################
@@ -191,7 +136,8 @@ for epoch_count in range(1, args.max_num_epochs + 1):
         pbar = train_loader
     else:
         pbar = DataLoader(train[torch.randint(len(train), size=(args.valid_freq * args.batch_size, ))], batch_size=args.batch_size)
-    if args.progressbar: pbar = tqdm(iterable=pbar, total=len(pbar), unit="steps", ascii=" ▖▘▝▗▚▞█", ncols=120)
+    if args.progressbar:
+        pbar = tqdm(iterable=pbar, total=len(pbar), unit="steps", ascii=" ▖▘▝▗▚▞█", ncols=120)
 
     train_ll = 0
     for batch_count, batch in enumerate(pbar):
@@ -207,17 +153,16 @@ for epoch_count in range(1, args.max_num_epochs + 1):
         check_validity_params(pc)
 
         # project params in inner layers TODO: remove or edit?
-        if args.reparam == "clamp":
-            for layer in pc.inner_layers:
-                # note, those are collapsed but we should also include non collapsed versions
-                if type(layer) in [UncollapsedCPLayer, CollapsedCPLayer, ScaledSharedCPLayer, SharedCPLayer]:
-                    layer.params_in().data.clamp_(min=sqrt_eps)
-                    if isinstance(layer, ScaledSharedCPLayer):
-                        layer.params_scale().data.clamp_(min=sqrt_eps)
-                    if isinstance(layer, UncollapsedCPLayer):
-                        layer.params_out().data.clamp_(min=sqrt_eps)
-                else:
-                    layer.params().data.clamp_(min=sqrt_eps)
+        for layer in pc.inner_layers:
+            # note, those are collapsed but we should also include non collapsed versions
+            if type(layer) in [UncollapsedCPLayer, CollapsedCPLayer, ScaledSharedCPLayer, SharedCPLayer]:
+                layer.params_in().data.clamp_(min=sqrt_eps)
+                if isinstance(layer, ScaledSharedCPLayer):
+                    layer.params_scale().data.clamp_(min=sqrt_eps)
+                if isinstance(layer, UncollapsedCPLayer):
+                    layer.params_out().data.clamp_(min=sqrt_eps)
+            else:
+                layer.params().data.clamp_(min=sqrt_eps)
 
         # if args.progressbar and batch_count % 10 == 0:
         #     pbar.set_description(f"Epoch {epoch_count} Train LL={log_likelihood.item() / args.batch_size :.2f})")
@@ -225,8 +170,7 @@ for epoch_count in range(1, args.max_num_epochs + 1):
     train_ll = train_ll / len(train_loader.dataset)
     valid_ll = eval_loglikelihood_batched(pc, valid_loader, device=device)
 
-    print(f"[{epoch_count}-th valid step]", 'train LL %.5f, valid LL %.5f, best valid LL %.5f' % (train_ll, valid_ll, best_valid_ll))
-    if device != "cpu": print('max allocated GPU: %.2f' % (torch.cuda.max_memory_allocated() / 1024 ** 3))
+
 
     # Not improved
     if valid_ll <= best_valid_ll:
@@ -239,6 +183,10 @@ for epoch_count in range(1, args.max_num_epochs + 1):
         torch.save(pc, save_model_path)
         best_valid_ll = valid_ll
         patience_counter = args.patience
+
+        print(f"[{epoch_count}-th valid step]", 'train LL %.5f, valid LL %.5f, best valid LL %.5f' % (train_ll, valid_ll, best_valid_ll))
+        if device != "cpu":
+            print('max allocated GPU: %.2f' % (torch.cuda.max_memory_allocated() / 1024 ** 3))
 
     writer.add_scalar("train_ll", train_ll, epoch_count)
     writer.add_scalar("valid_ll", valid_ll, epoch_count)
@@ -261,20 +209,24 @@ print('test  bpd: ', ll2bpd(best_test_ll, pc.num_vars * pc.input_layer.num_chann
 
 
 writer.add_hparams(
-    hparam_dict=vars(args),
+    hparam_dict={
+        "k": pc.input_layer.num_output_units,
+        "rank": args.rank,
+        "rg": args.rg,
+        "dataset": args.dataset
+    },
     metric_dict={
+        'Compression/Valid/bpd': float(compression_valid_bpd),
+        'Compression/Test/bpd': float(compression_test_bpd),
         'Best/Valid/ll':    float(best_valid_ll),
         'Best/Valid/bpd':   float(ll2bpd(best_valid_ll, pc.num_vars * pc.input_layer.num_channels)),
         'Best/Test/ll':     float(best_test_ll),
         'Best/Test/bpd':    float(ll2bpd(best_test_ll, pc.num_vars * pc.input_layer.num_channels)),
         'train_time':       float(train_time),
+        'num_params':       num_of_params(pc)
     },
     hparam_domain_discrete={
-        'dataset':      ['mnist', 'fashion_mnist', 'celeba'],
-        'rg':           ['QG', 'QT', 'PD', 'CLT', 'RQT'],
-        'layer':        [layer for layer in LAYER_TYPES],
-        'input_type':   [input_type for input_type in INPUT_TYPES],
-        'reparam':      [reparam for reparam in REPARAM_TYPES]
+        'dataset':      ['mnist', 'fashion_mnist', 'celeba']
     },
 )
 writer.close()
