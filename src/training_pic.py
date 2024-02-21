@@ -19,9 +19,8 @@ import time
 
 from cirkit_extension.trees import TREE_DICT
 from clt import tree2rg
-from pic import PIC, zw_quadrature, parameterize_pc
-from utils import check_validity_params, init_random_seeds, get_date_time_str, count_parameters, count_pc_params, \
-    param_to_buffer
+from pic import PIC, zw_quadrature
+from utils import check_validity_params, init_random_seeds, get_date_time_str, count_parameters, count_pc_params, param_to_buffer
 from datasets import load_dataset
 from measures import eval_loglikelihood_batched, ll2bpd
 
@@ -152,7 +151,7 @@ pic = PIC(
 
 print(f"QPC num of params: {count_pc_params(pc)}")
 print(f"PIC num of params: {count_parameters(pic)}")
-
+input()
 #######################################################################################
 ################################ optimizer & scheduler ################################
 #######################################################################################
@@ -183,8 +182,7 @@ for epoch_count in range(1, args.max_num_epochs + 1):
 
     train_ll = 0
     for batch_count, batch in enumerate(pbar):
-        sum_param, input_param = pic.quad(z=z, log_w=log_w)
-        parameterize_pc(pc, sum_param, input_param)
+        pic.parameterize_pc(pc=pc, z=z, log_w=log_w)
 
         batch = batch.to(device)  # (batch_size, num_vars, num channels)
         log_likelihood = pc(batch).sum(dim=0)
@@ -226,8 +224,7 @@ print(f'Overall training time: {train_time:.2f} (s)')
 #########################################################################
 
 pic = torch.load(save_model_path)
-sum_param, leaf_param = pic.quad(z=z, log_w=log_w)
-parameterize_pc(pc, sum_param, input_param)
+pic.parameterize_pc(pc=pc, z=z, log_w=log_w)
 
 pc_pf = integrate(pc)
 print('norm const', pc_pf(None))
@@ -256,3 +253,20 @@ writer.add_hparams(
     },
 )
 writer.close()
+
+
+
+import pandas as pd
+
+file_path = 'C:/Users/20210469/Desktop/snellius/hparams_table(1).csv'
+df = pd.read_csv(file_path)
+
+grouped_df = df.groupby(['seed', 'rg', 'layer'])
+
+for group_name, group_data in grouped_df:
+    sorted_group = group_data.sort_values(by='k')
+    if sorted_group['seed'][sorted_group['seed'].keys()[0]] == 7331:
+        print(sorted_group.to_csv(index=False, sep='\t'))
+
+
+
