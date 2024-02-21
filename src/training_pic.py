@@ -45,6 +45,7 @@ parser.add_argument("--weight-decay",   type=float, default=0,          help="We
 parser.add_argument("--k",              type=int,   default=128,        help="Num categories for mixtures")
 parser.add_argument("--rg",             type=str,   default="QT",       help="Region graph: 'PD', 'QG', 'QT' or 'RQT'")
 parser.add_argument("--layer",          type=str,                       help="Layer type: 'tucker', 'cp' or 'cp-shared'")
+parser.add_argument("--net-dim",        type=int,   default=64,         help="pic neural net dim")
 parser.add_argument("--input-type",     type=str,   default="cat",      help="input type: either 'cat' or 'bin'")
 parser.add_argument("--reparam",        type=str,   default="clamp",    help="Either 'exp', 'relu', 'exp_temp' or 'clamp'")
 parser.add_argument("--max-num-epochs", type=int,   default=None,       help="Max num epoch")
@@ -149,6 +150,7 @@ pic = PIC2(
     input_layer_type='categorical',
     n_categories=256,
     single_input_net=True,
+    net_dim=args.net_dim
     # multi_heads_inner_net=args.multi_head
 ).to(device)
 
