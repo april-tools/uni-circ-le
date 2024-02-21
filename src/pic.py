@@ -129,7 +129,7 @@ class PIC2(nn.Module):
         self.n_categories = n_categories  # if input_layer_type is categorical, this specifies the number of categories
         self.multi_heads_input_net = multi_heads_input_net
         self.single_input_net = single_input_net
-        self.inner_net = nn.Sequential(*[CMatrixBlock(n_blocks, net_dim=net_dim) for n_blocks in n_blocks_per_layer])
+        self.inner_net = nn.ModuleList([CMatrixBlock(n_blocks, net_dim=net_dim) for n_blocks in n_blocks_per_layer])
 
         input_dim = 1 if self.inner_layer_type == 'cp' else 2
         conv1_dim = 1 if multi_heads_input_net or single_input_net else n_input_layers
@@ -151,13 +151,7 @@ class PIC2(nn.Module):
 
         if self.inner_layer_type == 'cp':
 
-            self.inner_net[0].flatten01 = False
-            self.inner_net[1].groups = 1
-            if self.multi_heads_inner_net: self.inner_net[-2].groups = 1
-            z2d = torch.stack([z.repeat_interleave(nip), z.repeat(nip)]).t()
-            # sum_logits = torch.eye(nip, device=z.device).log().unsqueeze(0).repeat(self.n_inner_layers, 1, 1)
-            # sum_logits[0] = - self.root_net(z.unsqueeze(1))
-            inner_logits = - torch.hstack([self.inner_net(chunk) for chunk in z2d.chunk(n_chunks, 1)]).view(-1, nip, nip)
+            inner_logits = torch.cat([layer(z) for layer in self.inner_net])
             log_inner_param = (inner_logits - (inner_logits + log_w).logsumexp(-1, True)) + log_w
             inner_param = log_inner_param.exp().transpose(-1, -2)  # apparently, cirkit normalizes over the second last dim
 
@@ -169,6 +163,35 @@ class PIC2(nn.Module):
             input_param = input_logits.view(self.n_input_layers, self.n_categories, nip).transpose(1, 2).log_softmax(-1)
 
             return inner_param, input_param
+
+    def parameterize_pc(
+        self,
+        pc,
+        z: torch.Tensor,
+        log_w: torch.Tensor
+    ):
+        from cirkit.layers.sum_product import CollapsedCPLayer, TuckerLayer
+        # from cirkit.layers.sum import SumLayer
+
+        inner_param, input_param = self.quad(z=z, log_w=log_w)
+
+        matrices_per_layer = []
+        for layer in pc.inner_layers:
+            if isinstance(layer, CollapsedCPLayer):
+                matrices_per_layer.append(layer.params_in.param.size()[:2].numel())
+            elif isinstance(layer, TuckerLayer):
+                matrices_per_layer.append(layer.params.param.size(0))
+            else:
+                raise Exception('layer not supported: ', type(layer))
+
+        if isinstance(layer, CollapsedCPLayer):
+            sum_param_chunks = inner_param.split(matrices_per_layer, 0)
+            for layer, chunk, in zip(pc.inner_layers[:-1], sum_param_chunks[:-1]):
+                layer.params_in.param = chunk.view_as(layer.params_in.param)
+            pc.inner_layers[-1].params_in.param = sum_param_chunks[-1][..., :1].view_as(pc.inner_layers[-1].params_in.param)
+            pc.input_layer.params.param = input_param.unsqueeze(2)
+        else:
+            raise NotImplementedError('Tucker variant not ready yet')
 
 
 class PIC(nn.Module):

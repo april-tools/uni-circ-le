@@ -19,7 +19,7 @@ import time
 
 from cirkit_extension.trees import TREE_DICT
 from clt import tree2rg
-from pic import PIC, zw_quadrature
+from pic import PIC, PIC2, zw_quadrature
 from utils import check_validity_params, init_random_seeds, get_date_time_str, count_parameters, count_pc_params, param_to_buffer
 from datasets import load_dataset
 from measures import eval_loglikelihood_batched, ll2bpd
@@ -142,14 +142,14 @@ matrices_per_layer = []
 for layer in pc.inner_layers:
     matrices_per_layer.append(layer.params_in.param.size()[:2].numel())
 
-pic = PIC(
-    n_inner_layers=np.sum(matrices_per_layer),
+pic = PIC2(
+    matrices_per_layer, # n_inner_layers=np.sum(matrices_per_layer),
     inner_layer_type='cp',
     n_input_layers=pc.num_vars,
     input_layer_type='categorical',
     n_categories=256,
     single_input_net=True,
-    multi_heads_inner_net=args.multi_head
+    # multi_heads_inner_net=args.multi_head
 ).to(device)
 
 print(f"QPC num of params: {count_pc_params(pc)}")
@@ -256,20 +256,3 @@ writer.add_hparams(
     },
 )
 writer.close()
-
-
-
-import pandas as pd
-
-file_path = 'C:/Users/20210469/Desktop/snellius/hparams_table(1).csv'
-df = pd.read_csv(file_path)
-
-grouped_df = df.groupby(['seed', 'rg', 'layer'])
-
-for group_name, group_data in grouped_df:
-    sorted_group = group_data.sort_values(by='k')
-    if sorted_group['seed'][sorted_group['seed'].keys()[0]] == 7331:
-        print(sorted_group.to_csv(index=False, sep='\t'))
-
-
-
