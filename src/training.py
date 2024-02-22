@@ -57,7 +57,8 @@ parser.add_argument("--progressbar",    type=bool,  default=False,      help="Pr
 parser.add_argument('--valid_freq',     type=int,   default=None,       help='validation every n steps')
 parser.add_argument("--t0",             type=int,   default=1,          help='sched CAWR t0, 1 for fixed lr ')
 parser.add_argument("--eta-min",        type=float, default=1e-4,       help='sched CAWR eta min')
-parser.add_argument("--folding-bu",     type=bool,  default=False,       help='use bottom up folding?')
+parser.add_argument("--folding-bu",     type=bool,  default=False,      help='use bottom up folding?')
+parser.add_argument("--rank",           type=int,   default=None,       help="Rank (for uncollapsed CP)")
 
 args = parser.parse_args()
 print(args)
@@ -69,8 +70,10 @@ LAYER_TYPES = {
     "cp": CollapsedCPLayer,
     "cp-shared": SharedCPLayer,
     "cp-tucker": [],
-    "cp-shared-new": ScaledSharedCPLayer
+    "cp-shared-new": ScaledSharedCPLayer,
+    "uncollapsed-cp": UncollapsedCPLayer
 }
+
 INPUT_TYPES = {"cat": CategoricalLayer, "bin": BinomialLayer}
 REPARAM_TYPES = {
     "exp": ReparamExp,
@@ -150,9 +153,16 @@ efamily_kwargs: dict = {
     'bin': {'n': 256}
 }[args.input_type]
 
+
+layer_kwargs = {}
+if args.layer == "uncollapsed-cp":
+    assert args.rank is not None
+    layer_kwargs["rank"] = args.rank
+
 pc = TensorizedPC.from_region_graph(
     rg=rg,
     layer_cls=LAYER_TYPES[args.layer],
+    layer_kwargs=layer_kwargs,
     efamily_cls=INPUT_TYPES[args.input_type],
     efamily_kwargs=efamily_kwargs,
     num_inner_units=args.k,
