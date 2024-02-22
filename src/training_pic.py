@@ -19,7 +19,7 @@ import time
 
 from cirkit_extension.trees import TREE_DICT
 from clt import tree2rg
-from pic import PIC, zw_quadrature
+from pic import PIC, PIC2, zw_quadrature
 from utils import check_validity_params, init_random_seeds, get_date_time_str, count_parameters, count_pc_params, param_to_buffer
 from datasets import load_dataset
 from measures import eval_loglikelihood_batched, ll2bpd
@@ -45,6 +45,7 @@ parser.add_argument("--weight-decay",   type=float, default=0,          help="We
 parser.add_argument("--k",              type=int,   default=128,        help="Num categories for mixtures")
 parser.add_argument("--rg",             type=str,   default="QT",       help="Region graph: 'PD', 'QG', 'QT' or 'RQT'")
 parser.add_argument("--layer",          type=str,                       help="Layer type: 'tucker', 'cp' or 'cp-shared'")
+parser.add_argument("--net-dim",        type=int,   default=64,         help="pic neural net dim")
 parser.add_argument("--input-type",     type=str,   default="cat",      help="input type: either 'cat' or 'bin'")
 parser.add_argument("--reparam",        type=str,   default="clamp",    help="Either 'exp', 'relu', 'exp_temp' or 'clamp'")
 parser.add_argument("--max-num-epochs", type=int,   default=None,       help="Max num epoch")
@@ -142,18 +143,20 @@ matrices_per_layer = []
 for layer in pc.inner_layers:
     matrices_per_layer.append(layer.params_in.param.size()[:2].numel())
 
-pic = PIC(
-    n_inner_layers=np.sum(matrices_per_layer),
+pic = PIC2(
+    matrices_per_layer, # n_inner_layers=np.sum(matrices_per_layer),
     inner_layer_type='cp',
     n_input_layers=pc.num_vars,
     input_layer_type='categorical',
     n_categories=256,
     single_input_net=True,
-    multi_heads_inner_net=args.multi_head
+    net_dim=args.net_dim
+    # multi_heads_inner_net=args.multi_head
 ).to(device)
 
 print(f"QPC num of params: {count_pc_params(pc)}")
 print(f"PIC num of params: {count_parameters(pic)}")
+print(pic.inner_net[0].net[0] is pic.inner_net[1].net[0])
 
 #######################################################################################
 ################################ optimizer & scheduler ################################
@@ -204,10 +207,13 @@ for epoch_count in range(1, args.max_num_epochs + 1):
     if device != "cpu": print('max allocated GPU: %.2f' % (torch.cuda.max_memory_allocated() / 1024 ** 3))
 
     # Not improved
-    if valid_ll <= best_valid_ll:
+    if valid_ll <= best_valid_ll or np.isnan(valid_ll):
         patience_counter -= 1
-        if patience_counter == 0:
+        if patience_counter == 0 or np.isnan(valid_ll):
             print("-> Validation LL did not improve, early stopping")
+            break
+        if np.isnan(valid_ll):
+            print("-> NaN!")
             break
     else:
         print("-> Saved model")
@@ -256,20 +262,3 @@ writer.add_hparams(
     },
 )
 writer.close()
-
-
-
-import pandas as pd
-
-file_path = 'C:/Users/20210469/Desktop/snellius/hparams_table(1).csv'
-df = pd.read_csv(file_path)
-
-grouped_df = df.groupby(['seed', 'rg', 'layer'])
-
-for group_name, group_data in grouped_df:
-    sorted_group = group_data.sort_values(by='k')
-    if sorted_group['seed'][sorted_group['seed'].keys()[0]] == 7331:
-        print(sorted_group.to_csv(index=False, sep='\t'))
-
-
-
