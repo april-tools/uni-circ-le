@@ -90,6 +90,8 @@ def local_compression(orig_model: TensorizedPC, compressed_model: TensorizedPC, 
 
                     new_params_in = torch.cat((a.unsqueeze(dim=1), b.unsqueeze(dim=1)), dim=1)
                     c = c.permute(dims=(0, 2, 1))
+                    print(compressed_layer.params_in().shape)
+                    print(new_params_in.shape)
                     assert compressed_layer.params_in().shape == new_params_in.shape
                     assert compressed_layer.params_out().shape == c.shape
 
@@ -217,6 +219,7 @@ if __name__ == "__main__":
     cp_pc = TensorizedPC.from_region_graph(
         rg=rg,
         layer_cls=UncollapsedCPLayer,
+        layer_kwargs={"rank": args.rank},
         efamily_cls=INPUT_TYPES[args.input_type],
         efamily_kwargs=efamily_kwargs,
         num_inner_units=tucker_pc.inner_layers[0].num_output_units,
