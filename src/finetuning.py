@@ -94,7 +94,7 @@ writer = SummaryWriter(log_dir=os.path.dirname(save_model_path))
 #######################################################################################
 ################################## instantiate model ##################################
 #######################################################################################
-pc: TensorizedPC = torch.load(args.model_path)
+pc: TensorizedPC = torch.load(args.model_path).to(device)
 print(pc)
 print(f"Num of params: {num_of_params(pc)}")
 
