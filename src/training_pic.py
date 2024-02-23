@@ -143,20 +143,20 @@ matrices_per_layer = []
 for layer in pc.inner_layers:
     matrices_per_layer.append(layer.params_in.param.size()[:2].numel())
 
-pic = PIC2(
-    matrices_per_layer, # n_inner_layers=np.sum(matrices_per_layer),
+pic = PIC(
+    n_inner_layers=np.sum(matrices_per_layer), # n_inner_layers=np.sum(matrices_per_layer),
     inner_layer_type='cp',
     n_input_layers=pc.num_vars,
     input_layer_type='categorical',
     n_categories=256,
     single_input_net=True,
-    net_dim=args.net_dim
-    # multi_heads_inner_net=args.multi_head
+    net_dim=args.net_dim,
+    multi_heads_inner_net=args.multi_head
 ).to(device)
 
 print(f"QPC num of params: {count_pc_params(pc)}")
 print(f"PIC num of params: {count_parameters(pic)}")
-print(pic.inner_net[0].net[0] is pic.inner_net[1].net[0])
+
 
 #######################################################################################
 ################################ optimizer & scheduler ################################
