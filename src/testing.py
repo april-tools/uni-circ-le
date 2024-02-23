@@ -52,7 +52,7 @@ csv_row = {
 }
 
 df = pd.DataFrame.from_dict([csv_row])
-if os.path.exists(args.results_csv):
-    df.to_csv(args.results_csv, mode="a", index=False, header=False)
+if os.path.exists(args.save_results):
+    df.to_csv(args.save_results, mode="a", index=False, header=False)
 else:
-    df.to_csv(args.results_csv, index=False)
+    df.to_csv(args.save_results, index=False)
