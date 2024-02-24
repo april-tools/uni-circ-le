@@ -59,6 +59,7 @@ parser.add_argument("--t0",             type=int,   default=1,          help='sc
 parser.add_argument("--eta-min",        type=float, default=1e-4,       help='sched CAWR eta min')
 parser.add_argument("--folding-bu",     type=bool,  default=False,      help='use bottom up folding?')
 parser.add_argument("--rank",           type=int,   default=None,       help="Rank (for uncollapsed CP)")
+parser.add_argument("--num-workers",    type=int,   default=0,          help="Num workers for data loader")
 
 args = parser.parse_args()
 print(args)
@@ -88,7 +89,8 @@ REPARAM_TYPES = {
 assert args.layer in LAYER_TYPES
 assert args.input_type in INPUT_TYPES
 device = f"cuda:{args.gpu}" if torch.cuda.is_available() and args.gpu is not None else "cpu"
-if args.k_in is None: args.k_in = args.k
+if args.k_in is None:
+    args.k_in = args.k
 
 ###########################################################################
 ################### load dataset & create logging utils ###################
@@ -98,9 +100,12 @@ train, valid, test = load_dataset(args.dataset)
 image_size = int(np.sqrt(train[0].shape[0]))  # assumes squared images
 num_channels = train[0].shape[1]
 
-train_loader = DataLoader(train, batch_size=args.batch_size, shuffle=True, drop_last=True)
-valid_loader = DataLoader(valid, batch_size=args.batch_size, shuffle=False)
-test_loader = DataLoader(test, batch_size=args.batch_size, shuffle=False)
+train_loader = DataLoader(train, num_workers=args.num_workers,
+                          batch_size=args.batch_size, shuffle=True, drop_last=True)
+valid_loader = DataLoader(valid, num_workers=args.num_workers,
+                          batch_size=args.batch_size, shuffle=False)
+test_loader = DataLoader(test, num_workers=args.num_workers,
+                         batch_size=args.batch_size, shuffle=False)
 
 
 def make_path(base_dir, intermediate_dir: Literal["models", "logs"]):
@@ -201,7 +206,8 @@ for epoch_count in range(1, args.max_num_epochs + 1):
         pbar = train_loader
     else:
         pbar = DataLoader(train[torch.randint(len(train), size=(args.valid_freq * args.batch_size, ))], batch_size=args.batch_size)
-    if args.progressbar: pbar = tqdm(iterable=pbar, total=len(pbar), unit="steps", ascii=" ▖▘▝▗▚▞█", ncols=120)
+    if args.progressbar:
+        pbar = tqdm(iterable=pbar, total=len(pbar), unit="steps", ascii=" ▖▘▝▗▚▞█", ncols=120)
 
     train_ll = 0
     for batch_count, batch in enumerate(pbar):
@@ -235,8 +241,10 @@ for epoch_count in range(1, args.max_num_epochs + 1):
     train_ll = train_ll / len(train_loader.dataset)
     valid_ll = eval_loglikelihood_batched(pc, valid_loader, device=device)
 
-    print(f"[{epoch_count}-th valid step]", 'train LL %.5f, valid LL %.5f, best valid LL %.5f' % (train_ll, valid_ll, best_valid_ll))
-    if device != "cpu": print('max allocated GPU: %.2f' % (torch.cuda.max_memory_allocated() / 1024 ** 3))
+    print(f"[{epoch_count}-th valid step] train LL {train_ll:%.5f}, "
+          f"valid LL {valid_ll:%.5f}, best valid LL {best_valid_ll:%.5f}")
+    if device != "cpu":
+        print('max allocated GPU: %.2f' % (torch.cuda.max_memory_allocated(device=device) / 1024 ** 3))
 
     # Not improved
     if valid_ll <= best_valid_ll:
@@ -261,7 +269,7 @@ print(f'Overall training time: {train_time:.2f} (s)')
 ################################ testing ################################
 #########################################################################
 
-pc: TensorizedPC = torch.load(save_model_path)
+pc: TensorizedPC = torch.load(save_model_path).to(device=device)
 best_train_ll = eval_loglikelihood_batched(pc, train_loader, device=device)
 best_test_ll = eval_loglikelihood_batched(pc, test_loader, device=device)
 
