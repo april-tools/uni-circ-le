@@ -188,7 +188,7 @@ if __name__ == "__main__":
     # create RG: todo remove duplication of code
     if args.dataset in ["mnist", "fashion_mnist"]:
         image_size = 28
-    elif args.dataset == ["celeba"]:
+    elif args.dataset == "celeba":
         image_size = 64
     else:
         raise AssertionError("Unknown dataset")
