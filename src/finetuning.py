@@ -52,6 +52,8 @@ parser.add_argument("--progressbar",    type=bool,  default=False,      help="Pr
 parser.add_argument('--valid_freq',     type=int,   default=None,       help='validation every n steps')
 parser.add_argument("--t0",             type=int,   default=1,          help='sched CAWR t0, 1 for fixed lr ')
 parser.add_argument("--eta-min",        type=float, default=1e-4,       help='sched CAWR eta min')
+parser.add_argument("--num-workers",    type=int,   default=0,          help="Num workers for data loader")
+
 
 args = parser.parse_args()
 print(args)
@@ -67,9 +69,9 @@ train, valid, test = load_dataset(args.dataset)
 image_size = int(np.sqrt(train[0].shape[0]))  # assumes squared images
 num_channels = train[0].shape[1]
 
-train_loader = DataLoader(train, batch_size=args.batch_size, shuffle=True, drop_last=True)
-valid_loader = DataLoader(valid, batch_size=args.batch_size, shuffle=False)
-test_loader = DataLoader(test, batch_size=args.batch_size, shuffle=False)
+train_loader = DataLoader(train, batch_size=args.batch_size, num_workers=args.num_workers, shuffle=True, drop_last=True)
+valid_loader = DataLoader(valid, batch_size=args.batch_size, num_workers=args.num_workers, shuffle=False)
+test_loader = DataLoader(test, batch_size=args.batch_size, num_workers=args.num_workers, shuffle=False)
 
 
 def make_path(base_dir, intermediate_dir: Literal["models", "logs"]):
