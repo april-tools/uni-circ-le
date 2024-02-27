@@ -20,7 +20,7 @@ import time
 from cirkit_extension.trees import TREE_DICT
 from clt import tree2rg
 from cirkit_extension.reparam import ReparamReLU, ReparamSoftplus
-from utils import check_validity_params, init_random_seeds, get_date_time_str, count_trainable_parameters, keep_mixing_layers, count_pc_params
+from utils import check_validity_params, init_random_seeds, get_date_time_str, count_trainable_parameters, freeze_mixing_layers, count_pc_params
 from datasets import load_dataset
 from measures import eval_loglikelihood_batched, ll2bpd
 
@@ -60,7 +60,7 @@ parser.add_argument("--eta-min",        type=float, default=1e-4,       help='sc
 parser.add_argument("--folding-bu",     type=bool,  default=False,      help='use bottom up folding?')
 parser.add_argument("--rank",           type=int,   default=None,       help="Rank (for uncollapsed CP)")
 parser.add_argument("--num-workers",    type=int,   default=0,          help="Num workers for data loader")
-parser.add_argument("--mixing-layers",  type=str, default="all",        help="'all', 'last' or 'no'")
+parser.add_argument("--freeze-mixing-layers",  type=str, default="no",  help="'all', 'not_last' or 'no'")
 args = parser.parse_args()
 print(args)
 init_random_seeds(seed=args.seed)
@@ -178,7 +178,7 @@ pc = TensorizedPC.from_region_graph(
 ).to(device)
 
 assert args.mixing_layers in ["all", "last", "no"]
-keep_mixing_layers(pc, mode=args.mixing_layers)
+freeze_mixing_layers(pc, mode=args.freeze_mixing_layers)
 
 print(pc)
 print(f"PC num of params: {count_pc_params(pc)}")

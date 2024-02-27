@@ -82,15 +82,14 @@ def param_to_buffer(module):
         param_to_buffer(module)
 
 
-def keep_mixing_layers(pc, mode: Literal["all", "last", "no"]):
+def freeze_mixing_layers(pc, mode: Literal["all", "not_last"]):
 
-    if mode == "no":
+    if mode == "all":
         layers = pc.inner_layers
-    elif mode == "last":
+    elif mode == "not_last":
         layers = pc.inner_layers[:-1]
     else:
-        assert mode == "all"
-        return
+        raise AssertionError("Unknown mode")
 
     for layer in layers:
         if isinstance(layer, SumLayer):
