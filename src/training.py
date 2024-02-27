@@ -20,7 +20,7 @@ import time
 from cirkit_extension.trees import TREE_DICT
 from clt import tree2rg
 from cirkit_extension.reparam import ReparamReLU, ReparamSoftplus
-from utils import check_validity_params, init_random_seeds, get_date_time_str, count_trainable_parameters, freeze_mixing_layers, count_pc_params
+from utils import check_validity_params, init_random_seeds, get_date_time_str, count_trainable_parameters, keep_mixing_layers, count_pc_params
 from datasets import load_dataset
 from measures import eval_loglikelihood_batched, ll2bpd
 
@@ -49,7 +49,7 @@ parser.add_argument("--k",              type=int,   default=128,        help="Nu
 parser.add_argument("--k-in",           type=int,   default=None,       help="Num input distributions per input region, if None then is equal to k",)
 parser.add_argument("--rg",             type=str,   default="QT",       help="Region graph: 'PD', 'QG', 'QT' or 'RQT'")
 parser.add_argument("--layer",          type=str,                       help="Layer type: 'tucker', 'cp' or 'cp-shared'")
-parser.add_argument("--input-type",     type=str,                       help="input type: either 'cat' or 'bin'")
+parser.add_argument("--input-type",     type=str,   default="cat",      help="input type: either 'cat' or 'bin'")
 parser.add_argument("--reparam",        type=str,   default="clamp",    help="Either 'exp', 'relu', 'exp_temp' or 'clamp'")
 parser.add_argument("--max-num-epochs", type=int,   default=None,       help="Max num epoch")
 parser.add_argument("--batch-size",     type=int,   default=128,        help="batch size")
@@ -60,9 +60,7 @@ parser.add_argument("--eta-min",        type=float, default=1e-4,       help='sc
 parser.add_argument("--folding-bu",     type=bool,  default=False,      help='use bottom up folding?')
 parser.add_argument("--rank",           type=int,   default=None,       help="Rank (for uncollapsed CP)")
 parser.add_argument("--num-workers",    type=int,   default=0,          help="Num workers for data loader")
-parser.set_defaults(freeze_mixing_layers=False)
-parser.add_argument("--fml",        dest="freeze_mixing_layers",   action="store_true")
-parser.add_argument("--no-fml",     dest="freeze_mixing_layers",   action="store_false")
+parser.add_argument("--mixing-layers",  type=str, default="all",        help="'all', 'last' or 'no'")
 args = parser.parse_args()
 print(args)
 init_random_seeds(seed=args.seed)
@@ -178,8 +176,10 @@ pc = TensorizedPC.from_region_graph(
     reparam=REPARAM_TYPES[args.reparam],
     bottom_up_folding=args.folding_bu
 ).to(device)
-if args.freeze_mixing_layers:
-    freeze_mixing_layers(pc)
+
+assert args.mixing_layers in ["all", "last", "no"]
+keep_mixing_layers(pc, mode=args.mixing_layers)
+
 print(pc)
 print(f"PC num of params: {count_pc_params(pc)}")
 print(f"PC num of trainable params: {count_trainable_parameters(pc)}")
@@ -286,11 +286,13 @@ print('test  bpd: ', ll2bpd(best_test_ll, pc.num_vars * pc.input_layer.num_chann
 writer.add_hparams(
     hparam_dict=vars(args),
     metric_dict={
-        'Best/Valid/ll':    float(best_valid_ll),
-        'Best/Valid/bpd':   float(ll2bpd(best_valid_ll, pc.num_vars * pc.input_layer.num_channels)),
-        'Best/Test/ll':     float(best_test_ll),
-        'Best/Test/bpd':    float(ll2bpd(best_test_ll, pc.num_vars * pc.input_layer.num_channels)),
-        'train_time':       float(train_time),
+        'Best/Valid/ll':        float(best_valid_ll),
+        'Best/Valid/bpd':       float(ll2bpd(best_valid_ll, pc.num_vars * pc.input_layer.num_channels)),
+        'Best/Test/ll':         float(best_test_ll),
+        'Best/Test/bpd':        float(ll2bpd(best_test_ll, pc.num_vars * pc.input_layer.num_channels)),
+        'train_time':           float(train_time),
+        'num_params':           float(count_pc_params(pc)),
+        'num_trainable_params': float(count_trainable_parameters(pc))
     },
     hparam_domain_discrete={
         'dataset':      ['mnist', 'fashion_mnist', 'celeba'],

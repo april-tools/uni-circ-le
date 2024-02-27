@@ -1,6 +1,8 @@
 import datetime
 import os
 import random
+from typing import Literal
+
 import numpy as np
 import torch
 
@@ -80,8 +82,16 @@ def param_to_buffer(module):
         param_to_buffer(module)
 
 
-def freeze_mixing_layers(pc):
-    for layer in pc.inner_layers:
+def keep_mixing_layers(pc, mode: Literal["all", "last", "no"]):
+
+    if mode == "all":
+        layers = pc.inner_layers
+    elif mode == "last":
+        layers = pc.inner_layers[:-1]
+    else:
+        return
+
+    for layer in layers:
         if isinstance(layer, SumLayer):
             param_to_buffer(layer)
             layer.params.param.fill_(0.5)

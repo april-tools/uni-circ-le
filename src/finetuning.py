@@ -17,23 +17,15 @@ import argparse
 import torch
 import time
 
-from cirkit_extension.trees import TREE_DICT
-from clt import tree2rg
-from cirkit_extension.reparam import ReparamReLU, ReparamSoftplus
-from utils import check_validity_params, init_random_seeds, get_date_time_str, num_of_params
+from utils import check_validity_params, init_random_seeds, get_date_time_str, count_trainable_parameters
 from datasets import load_dataset
 from measures import eval_loglikelihood_batched, ll2bpd, eval_bpd
 
 # cirkit
 from cirkit_extension.tensorized_circuit import TensorizedPC
 from cirkit.models.functional import integrate
-from cirkit.reparams.leaf import ReparamExp, ReparamIdentity, ReparamSoftmax
-from cirkit.layers.input.exp_family.categorical import CategoricalLayer
-from cirkit.layers.input.exp_family.binomial import BinomialLayer
-from cirkit.layers.sum_product import CollapsedCPLayer, TuckerLayer, SharedCPLayer, UncollapsedCPLayer
-from cirkit.region_graph.poon_domingos import PoonDomingos
-from cirkit.region_graph.quad_tree import QuadTree
-from cirkit_extension.real_qt import RealQuadTree
+from cirkit.layers.sum_product import CollapsedCPLayer, SharedCPLayer, UncollapsedCPLayer
+
 
 
 parser = argparse.ArgumentParser()
@@ -98,7 +90,7 @@ writer = SummaryWriter(log_dir=os.path.dirname(save_model_path))
 #######################################################################################
 pc: TensorizedPC = torch.load(args.model_path).to(device)
 print(pc)
-print(f"Num of params: {num_of_params(pc)}")
+print(f"Num of params: {count_trainable_parameters(pc)}")
 
 sqrt_eps = np.sqrt(torch.finfo(torch.get_default_dtype()).tiny)  # todo find better place
 pc_pf: TensorizedPC = integrate(pc)
@@ -238,7 +230,7 @@ writer.add_hparams(
         'Best/Test/ll':     float(best_test_ll),
         'Best/Test/bpd':    float(ll2bpd(best_test_ll, pc.num_vars * pc.input_layer.num_channels)),
         'train_time':       float(train_time),
-        'num_params':       num_of_params(pc)
+        'num_params':       count_trainable_parameters(pc)
     },
     hparam_domain_discrete={
         'dataset':      ['mnist', 'fashion_mnist', 'celeba']
