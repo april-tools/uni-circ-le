@@ -6,6 +6,10 @@ import torch
 
 
 from cirkit_extension.tensorized_circuit import TensorizedPC
+from cirkit_extension.cp_shared import ScaledSharedCPLayer
+
+from cirkit.layers.sum_product import CollapsedCPLayer, TuckerLayer, SharedCPLayer, UncollapsedCPLayer
+from cirkit.layers.sum import SumLayer
 
 
 def load_model(path: str, device="cpu") -> TensorizedPC:
@@ -34,17 +38,13 @@ def init_random_seeds(seed: int = 42):
     os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":16:8"
 
 
-def num_of_params(pc: TensorizedPC) -> int:
-    num_param = sum(p.numel() for p in pc.input_layer.parameters())
-    for layer in pc.inner_layers:
-        num_param += sum(p.numel() for p in layer.parameters())
-    return num_param
-
-
 def count_pc_params(pc: TensorizedPC) -> int:
     num_param = pc.input_layer.params.param.numel()
     for layer in pc.inner_layers:
-        num_param += layer.params_in.param.numel()
+        if type(layer) in [UncollapsedCPLayer, CollapsedCPLayer, ScaledSharedCPLayer, SharedCPLayer]:
+            num_param += layer.params_in.param.numel()
+        else:
+            num_param += layer.params.param.numel()
     return num_param
 
 
@@ -80,5 +80,12 @@ def param_to_buffer(module):
         param_to_buffer(module)
 
 
-def count_parameters(model):
+def freeze_mixing_layers(pc):
+    for layer in pc.inner_layers:
+        if isinstance(layer, SumLayer):
+            param_to_buffer(layer)
+            layer.params.param.fill_(0.5)
+
+
+def count_trainable_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
