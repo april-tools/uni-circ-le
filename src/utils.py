@@ -84,11 +84,12 @@ def param_to_buffer(module):
 
 def keep_mixing_layers(pc, mode: Literal["all", "last", "no"]):
 
-    if mode == "all":
+    if mode == "no":
         layers = pc.inner_layers
     elif mode == "last":
         layers = pc.inner_layers[:-1]
     else:
+        assert mode == "all"
         return
 
     for layer in layers:
