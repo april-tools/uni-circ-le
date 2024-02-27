@@ -33,9 +33,16 @@ train, valid, test = load_dataset(args.dataset)
 image_size = int(np.sqrt(train[0].shape[0]))  # assumes squared images
 num_channels = train[0].shape[1]
 
-train_loader = DataLoader(train, batch_size=512, shuffle=True, drop_last=True)
-valid_loader = DataLoader(valid, batch_size=512, shuffle=False)
-test_loader = DataLoader(test, batch_size=512, shuffle=False)
+if args.dataset == "celeba":
+    num_workers = 64
+else:
+    num_workers = 0
+
+
+train_loader = DataLoader(train, batch_size=512, shuffle=False, num_workers=num_workers)
+valid_loader = DataLoader(valid, batch_size=512, shuffle=False, num_workers=num_workers)
+test_loader = DataLoader(test, batch_size=512, shuffle=False, num_workers=num_workers)
+
 
 train_bpd = eval_bpd(pc, train_loader, device=device)
 valid_bpd = eval_bpd(pc, valid_loader, device=device)
