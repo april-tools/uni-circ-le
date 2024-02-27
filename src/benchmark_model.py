@@ -5,9 +5,10 @@ import sys
 import os
 
 
-
 sys.path.append(os.path.join(os.getcwd(), "cirkit"))
 sys.path.append(os.path.join(os.getcwd(), "src"))
+
+from utils import count_pc_params, count_trainable_parameters
 
 import numpy as np
 import pandas as pd
@@ -181,9 +182,17 @@ def main():
     ################################## create fake fata ##################################
     ######################################################################################
 
-    num_vars = 28 * 28
+    if args.dataset == "celeba":
+        SQUARE_SIZE = 64
+        NUM_CHANNELS = 3
+    else:
+        SQUARE_SIZE = 28
+        NUM_CHANNELS = 1
+
+    num_vars = SQUARE_SIZE**2
+
     data_size = args.num_steps * args.batch_size
-    rand_data = torch.randint(256, (data_size, num_vars, 1), dtype=torch.float32)
+    rand_data = torch.randint(256, (data_size, num_vars, NUM_CHANNELS), dtype=torch.float32)
     data_loader = DataLoader(
         dataset=TensorDataset(rand_data),
         batch_size=args.batch_size,
@@ -198,11 +207,10 @@ def main():
 
     # create RG
     REGION_GRAPHS = {
-        'QG': QuadTree(width=28, height=28, struct_decomp=False),
-        'QT': QuadTree(width=28, height=28, struct_decomp=True),
-        'PD': PoonDomingos(shape=(28, 28), delta=4),
-        'CLT': tree2rg(TREE_DICT["mnist"]),
-        'RQT': RealQuadTree(width=28, height=28)
+        'QG': lambda: QuadTree(width=SQUARE_SIZE, height=SQUARE_SIZE, struct_decomp=False),
+        'QT': lambda: QuadTree(width=SQUARE_SIZE, height=SQUARE_SIZE, struct_decomp=True),
+        'PD': lambda: PoonDomingos(shape=(SQUARE_SIZE, SQUARE_SIZE), delta=4),
+        'RQT': lambda: RealQuadTree(width=SQUARE_SIZE, height=SQUARE_SIZE)
     }
 
     # choose layer
@@ -214,14 +222,16 @@ def main():
     }
 
     pc = TensorizedPC.from_region_graph(
-        rg=REGION_GRAPHS[args.region_graph],
+        rg=REGION_GRAPHS[args.region_graph](),
         layer_cls=LAYER_TYPES[args.layer],
         efamily_cls=CategoricalLayer,
         efamily_kwargs={"num_categories": 256},  # type: ignore[misc]
         num_inner_units=args.k,
-        num_input_units=args.k
+        num_input_units=args.k,
+        num_channels=NUM_CHANNELS
     ).to(device)
-    num_params = sum(p.numel() for p in pc.parameters())
+    num_params = count_pc_params(pc)
+    num_trainable_params = count_trainable_parameters(pc)
     print(f"Number of parameters: {num_params}")
 
     # benchmark evaluation mode
@@ -234,6 +244,7 @@ def main():
         "layer": args.layer,
         "k": args.k,
         "num-params": num_params,
+        "num-trainable-params": num_trainable_params,
         "batch-size": args.batch_size,
         "test-time": test_mu_t,
         "test-time-std": test_sigma_t,
