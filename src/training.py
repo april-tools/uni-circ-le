@@ -177,7 +177,7 @@ pc = TensorizedPC.from_region_graph(
     bottom_up_folding=args.folding_bu
 ).to(device)
 
-assert args.mixing_layers in ["all", "last", "no"]
+assert args.freeze_mixing_layers in ["all", "not_last", "no"]
 freeze_mixing_layers(pc, mode=args.freeze_mixing_layers)
 
 print(pc)

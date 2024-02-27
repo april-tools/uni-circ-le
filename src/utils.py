@@ -88,6 +88,8 @@ def freeze_mixing_layers(pc, mode: Literal["all", "not_last"]):
         layers = pc.inner_layers
     elif mode == "not_last":
         layers = pc.inner_layers[:-1]
+    elif mode == "no":
+        return
     else:
         raise AssertionError("Unknown mode")
 
