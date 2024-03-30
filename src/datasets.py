@@ -113,7 +113,7 @@ def load_dataset(name: str, valid_proportion: Optional[float] = 0.05, ycc: bool 
 def load_cifar10(
         transform=None,
         valid_split_percentage: Optional[float] = 0,
-        ycc: Optional[bool] = False,
+        ycc: Optional[bool] = True,
         dtype: torch.dtype = torch.int64
 ):
     train = torch.LongTensor(CIFAR10(root="./data/", train=True, download=True).data).to(dtype=dtype)
@@ -156,6 +156,7 @@ def ycc2rgb(ycc_images):
     red, blue = reverse_lift(temp, co)
     rgb_images = torch.cat([red, green, blue], dim=1).view_as(ycc_images)
     return rgb_images
+
 
 class CelebADataset(Dataset):
 
