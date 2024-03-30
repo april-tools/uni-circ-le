@@ -60,7 +60,7 @@ parser.add_argument("--eta-min",        type=float, default=1e-4,       help='sc
 parser.add_argument("--folding-bu",     type=bool,  default=False,      help='use bottom up folding?')
 parser.add_argument("--rank",           type=int,   default=None,       help="Rank (for uncollapsed CP)")
 parser.add_argument("--num-workers",    type=int,   default=0,          help="Num workers for data loader")
-parser.add_argument("--freeze-mixing-layers",  type=str, default="no",  help="'all', 'not_last' or 'no'")
+parser.add_argument("--freeze-mixing-layers",  type=str, default="all",  help="'all', 'not_last' or 'no'")
 args = parser.parse_args()
 print(args)
 init_random_seeds(seed=args.seed)
@@ -246,8 +246,8 @@ for epoch_count in range(1, args.max_num_epochs + 1):
     train_ll = train_ll / len(train_loader.dataset)
     valid_ll = eval_loglikelihood_batched(pc, valid_loader, device=device)
 
-    print(f"[{epoch_count}-th valid step] train LL {train_ll:.5f}, "
-          f"valid LL {valid_ll:.5f}, best valid LL {best_valid_ll:.5f}")
+    print(f"[{epoch_count}-th valid step] Train bpd {ll2bpd(train_ll, pc.num_vars * pc.input_layer.num_channels):.5f}, "
+          f"Valid bpd {ll2bpd(valid_ll, pc.num_vars * pc.input_layer.num_channels):.5f}, Best valid LL {best_valid_ll:.5f}")
     if device != "cpu":
         print('max allocated GPU: %.2f' % (torch.cuda.max_memory_allocated(device=device) / 1024 ** 3))
 
@@ -278,9 +278,9 @@ pc: TensorizedPC = torch.load(save_model_path).to(device=device)
 best_train_ll = eval_loglikelihood_batched(pc, train_loader, device=device)
 best_test_ll = eval_loglikelihood_batched(pc, test_loader, device=device)
 
-print('train bpd: ', ll2bpd(best_train_ll, pc.num_vars * pc.input_layer.num_channels))
-print('valid bpd: ', ll2bpd(best_valid_ll, pc.num_vars * pc.input_layer.num_channels))
-print('test  bpd: ', ll2bpd(best_test_ll, pc.num_vars * pc.input_layer.num_channels))
+print('Train bpd: ', ll2bpd(best_train_ll, pc.num_vars * pc.input_layer.num_channels))
+print('Valid bpd: ', ll2bpd(best_valid_ll, pc.num_vars * pc.input_layer.num_channels))
+print('Test  bpd: ', ll2bpd(best_test_ll, pc.num_vars * pc.input_layer.num_channels))
 
 
 writer.add_hparams(

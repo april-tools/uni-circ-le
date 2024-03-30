@@ -6,15 +6,17 @@ import shutil
 import subprocess
 import tempfile
 import urllib.request
+from typing import Optional
 
 import numpy as np
 import scipy.io as sp
 import torch
 from PIL import Image
 
+from sklearn.model_selection import train_test_split
 from emnist import extract_test_samples, extract_training_samples
 import torchvision.transforms as transforms
-from torchvision.datasets import CelebA
+from torchvision.datasets import CelebA, CIFAR10
 from torch.utils.data import DataLoader, Dataset
 
 
@@ -47,10 +49,11 @@ DEBD = [
 MNIST = ["mnist", "fashion_mnist", "balanced", "byclass", "letters", "e_mnist"]
 
 
-
-def load_dataset(name: str):
+def load_dataset(name: str, valid_proportion: Optional[float] = 0.05, ycc: bool = False):
     """
     :param name: dataset name (one of DEBD or MNIST datasets)
+    :param valid_proportion: proportion of validation set
+    :param ycc: whether to apply RGB2YCC preprocessing
     :return: train_x, valid_x, test_x
     """
 
@@ -95,6 +98,8 @@ def load_dataset(name: str):
         valid_x = CelebADataset(root="../data/", split='valid')
         test_x = CelebADataset(root="../data/", split='test')
         return train_x, valid_x, test_x
+    elif name.startswith("cifar"):
+        return load_cifar10(valid_split_percentage=valid_proportion, ycc=ycc)
     else:
         raise AssertionError("Invalid dataset name")
 
@@ -104,6 +109,53 @@ def load_dataset(name: str):
 
     return train_x, valid_x, test_x
 
+
+def load_cifar10(
+        transform=None,
+        valid_split_percentage: Optional[float] = 0,
+        ycc: Optional[bool] = False,
+        dtype: torch.dtype = torch.int64
+):
+    train = torch.LongTensor(CIFAR10(root="./data/", train=True, download=True).data).to(dtype=dtype)
+    test = torch.LongTensor(CIFAR10(root="./data/", train=False, download=True).data).to(dtype=dtype)
+    train = rgb2ycc(train.flatten(1, 2).contiguous()) if ycc else train.flatten(1, 2).contiguous()
+    test = rgb2ycc(test.flatten(1, 2).contiguous()) if ycc else test.flatten(1, 2).contiguous()
+    if valid_split_percentage == 0:
+        return train, test
+    else:
+        train_idx, valid_idx = train_test_split(np.arange(len(train)), train_size=1-valid_split_percentage)
+        train, valid = train[train_idx], train[valid_idx]
+        return train, valid, test
+
+
+def rgb2ycc(rgb_images):
+    assert rgb_images.size(-1) == 3
+
+    def forward_lift(x, y):
+        diff = (y - x) % 256
+        average = (x + (diff >> 1)) % 256
+        return average, diff
+
+    red, green, blue = rgb_images.view(-1, 3).split(1, 1)
+    temp, co = forward_lift(red, blue)
+    y, cg = forward_lift(green, temp)
+    ycc_images = torch.cat([y, cg, co], dim=1).view_as(rgb_images)
+    return ycc_images
+
+
+def ycc2rgb(ycc_images):
+    assert ycc_images.size(-1) == 3
+
+    def reverse_lift(average, diff):
+        x = (average - (diff >> 1)) % 256
+        y = (x + diff) % 256
+        return x, y
+
+    y, cg, co = ycc_images.view(-1, 3).split(1, 1)
+    green, temp = reverse_lift(y, cg)
+    red, blue = reverse_lift(temp, co)
+    rgb_images = torch.cat([red, green, blue], dim=1).view_as(ycc_images)
+    return rgb_images
 
 class CelebADataset(Dataset):
 
