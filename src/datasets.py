@@ -145,7 +145,8 @@ class CelebADataset(Dataset):
             transforms.Resize((64, 64)),
             transforms.ToTensor(),
             lambda x: (x*255).type(torch.int16),
-            ((lambda x: rgb2ycc(x)) if ycc else (lambda x: x))
+            ((lambda x: rgb2ycc(x)) if ycc else (lambda x: x)),
+            lambda x: x.float()
         ])
 
         self.celeba_dataset = CelebA(root=root, split=split, transform=transform, download=False)
