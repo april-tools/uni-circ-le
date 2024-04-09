@@ -61,6 +61,9 @@ parser.add_argument("--folding-bu",     type=bool,  default=False,      help='us
 parser.add_argument("--rank",           type=int,   default=None,       help="Rank (for uncollapsed CP)")
 parser.add_argument("--num-workers",    type=int,   default=0,          help="Num workers for data loader")
 parser.add_argument("--freeze-mixing-layers",  type=str, default="all",  help="'all', 'not_last' or 'no'")
+parser.set_defaults(ycc=False)
+parser.add_argument('-ycc',        dest='ycc',                 action='store_true')
+parser.add_argument('-rgb',        dest='ycc',                 action='store_false')
 args = parser.parse_args()
 print(args)
 init_random_seeds(seed=args.seed)
@@ -96,7 +99,7 @@ if args.k_in is None:
 ################### load dataset & create logging utils ###################
 ###########################################################################
 
-train, valid, test = load_dataset(args.dataset)
+train, valid, test = load_dataset(args.dataset, ycc=args.ycc)
 image_size = int(np.sqrt(train[0].shape[0]))  # assumes squared images
 num_channels = train[0].shape[1]
 

@@ -49,10 +49,9 @@ DEBD = [
 MNIST = ["mnist", "fashion_mnist", "balanced", "byclass", "letters", "e_mnist"]
 
 
-def load_dataset(name: str, valid_proportion: Optional[float] = 0.05, ycc: bool = False):
+def load_dataset(name: str, ycc: bool = False):
     """
     :param name: dataset name (one of DEBD or MNIST datasets)
-    :param valid_proportion: proportion of validation set
     :param ycc: whether to apply RGB2YCC preprocessing
     :return: train_x, valid_x, test_x
     """
@@ -94,12 +93,10 @@ def load_dataset(name: str, valid_proportion: Optional[float] = 0.05, ycc: bool 
             raise AssertionError("Inconsistent mnist value ?!")
 
     elif name == "celeba":
-        train_x = CelebADataset(root="../data/", split='train')
-        valid_x = CelebADataset(root="../data/", split='valid')
-        test_x = CelebADataset(root="../data/", split='test')
+        train_x = CelebADataset(root="../data/", split='train', ycc=ycc)
+        valid_x = CelebADataset(root="../data/", split='valid', ycc=ycc)
+        test_x = CelebADataset(root="../data/", split='test', ycc=ycc)
         return train_x, valid_x, test_x
-    elif name.startswith("cifar"):
-        return load_cifar10(valid_split_percentage=valid_proportion, ycc=ycc)
     else:
         raise AssertionError("Invalid dataset name")
 
@@ -110,62 +107,45 @@ def load_dataset(name: str, valid_proportion: Optional[float] = 0.05, ycc: bool 
     return train_x, valid_x, test_x
 
 
-def load_cifar10(
-        transform=None,
-        valid_split_percentage: Optional[float] = 0,
-        ycc: Optional[bool] = True,
-        dtype: torch.dtype = torch.int64
-):
-    train = torch.LongTensor(CIFAR10(root="./data/", train=True, download=True).data).to(dtype=dtype)
-    test = torch.LongTensor(CIFAR10(root="./data/", train=False, download=True).data).to(dtype=dtype)
-    train = rgb2ycc(train.flatten(1, 2).contiguous()) if ycc else train.flatten(1, 2).contiguous()
-    test = rgb2ycc(test.flatten(1, 2).contiguous()) if ycc else test.flatten(1, 2).contiguous()
-    if valid_split_percentage == 0:
-        return train, test
-    else:
-        train_idx, valid_idx = train_test_split(np.arange(len(train)), train_size=1-valid_split_percentage)
-        train, valid = train[train_idx], train[valid_idx]
-        return train, valid, test
-
-
-def rgb2ycc(rgb_images):
-    assert rgb_images.size(-1) == 3
+def rgb2ycc(rgb_image):
+    assert rgb_image.size(0) == 3
 
     def forward_lift(x, y):
         diff = (y - x) % 256
         average = (x + (diff >> 1)) % 256
         return average, diff
 
-    red, green, blue = rgb_images.view(-1, 3).split(1, 1)
+    red, green, blue = rgb_image[0], rgb_image[1], rgb_image[2]
     temp, co = forward_lift(red, blue)
     y, cg = forward_lift(green, temp)
-    ycc_images = torch.cat([y, cg, co], dim=1).view_as(rgb_images)
-    return ycc_images
+    ycc_image = torch.stack([y, cg, co], dim=0)
+    return ycc_image
 
 
-def ycc2rgb(ycc_images):
-    assert ycc_images.size(-1) == 3
+def ycc2rgb(ycc_image):
+    assert ycc_image.size(0) == 3
 
     def reverse_lift(average, diff):
         x = (average - (diff >> 1)) % 256
         y = (x + diff) % 256
         return x, y
 
-    y, cg, co = ycc_images.view(-1, 3).split(1, 1)
+    y, cg, co = ycc_image[0], ycc_image[1], ycc_image[2]
     green, temp = reverse_lift(y, cg)
     red, blue = reverse_lift(temp, co)
-    rgb_images = torch.cat([red, green, blue], dim=1).view_as(ycc_images)
-    return rgb_images
+    rgb_image = torch.stack([red, green, blue], dim=0)
+    return rgb_image
 
 
 class CelebADataset(Dataset):
 
-    def __init__(self, root, split='all'):
+    def __init__(self, root, split='all', ycc: Optional[bool] = False):
         transform = transforms.Compose([
             transforms.CenterCrop((140, 140)),
             transforms.Resize((64, 64)),
             transforms.ToTensor(),
-            lambda x: x*255
+            lambda x: x*255,
+            ((lambda x: rgb2ycc(x)) if ycc else (lambda x: x))
         ])
 
         self.celeba_dataset = CelebA(root=root, split=split, transform=transform, download=False)
