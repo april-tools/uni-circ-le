@@ -144,7 +144,7 @@ class CelebADataset(Dataset):
             transforms.CenterCrop((140, 140)),
             transforms.Resize((64, 64)),
             transforms.ToTensor(),
-            lambda x: x*255,
+            lambda x: (x*255).type(torch.int16),
             ((lambda x: rgb2ycc(x)) if ycc else (lambda x: x))
         ])
 
