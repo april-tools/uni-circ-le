@@ -2,7 +2,8 @@ import sys
 import os
 from typing import Literal
 
-# sys.path.append(os.path.join(os.getcwd(), "cirkit"))
+import datasets
+
 sys.path.append(os.path.join(os.getcwd(), "src"))
 
 import functools
@@ -18,7 +19,6 @@ import torch
 import time
 
 from cirkit_extension.trees import TREE_DICT
-from clt import tree2rg
 from cirkit_extension.reparam import ReparamReLU, ReparamSoftplus
 from utils import check_validity_params, init_random_seeds, get_date_time_str, count_trainable_parameters, freeze_mixing_layers, count_pc_params
 from datasets import load_dataset
@@ -47,7 +47,7 @@ parser.add_argument("--patience",       type=int,   default=5,          help='pa
 parser.add_argument("--weight-decay",   type=float, default=0,          help="Weight decay coefficient")
 parser.add_argument("--k",              type=int,   default=128,        help="Num categories for mixtures")
 parser.add_argument("--k-in",           type=int,   default=None,       help="Num input distributions per input region, if None then is equal to k",)
-parser.add_argument("--rg",             type=str,   default="QT",       help="Region graph: 'PD', 'QG', 'QT' or 'RQT'")
+parser.add_argument("--rg",             type=str,   default="QT",       help="Region graph: 'PD', 'QG' or 'QT'")
 parser.add_argument("--layer",          type=str,                       help="Layer type: 'tucker', 'cp' or 'cp-shared'")
 parser.add_argument("--input-type",     type=str,   default="cat",      help="input type: either 'cat' or 'bin'")
 parser.add_argument("--reparam",        type=str,   default="clamp",    help="Either 'exp', 'relu', 'exp_temp' or 'clamp'")
@@ -73,7 +73,6 @@ LAYER_TYPES = {
     "tucker": TuckerLayer,
     "cp": CollapsedCPLayer,
     "cp-shared": SharedCPLayer,
-    "cp-tucker": [],
     "cp-shared-new": ScaledSharedCPLayer,
     "uncollapsed-cp": UncollapsedCPLayer
 }
@@ -137,21 +136,11 @@ if not os.path.exists(os.path.dirname(save_model_path)): os.makedirs(os.path.dir
 if args.rg == 'QG':
     rg = QuadTree(width=image_size, height=image_size, struct_decomp=False)
 elif args.rg == 'QT':
-    rg = QuadTree(width=image_size, height=image_size, struct_decomp=True)
+    rg = RealQuadTree(width=image_size, height=image_size)
 elif args.rg == 'PD':
     rg = PoonDomingos(shape=(image_size, image_size), delta=4)
-elif args.rg == 'CLT':
-    rg = tree2rg(TREE_DICT[args.dataset])
-elif args.rg == 'RQT':
-    rg = RealQuadTree(width=image_size, height=image_size)
 else:
     raise NotImplementedError("region graph not available")
-
-
-if args.layer == "cp-tucker":
-    for inner_layer in rg.topological_layers(bottom_up=False)[1:-1]:
-        LAYER_TYPES["cp-tucker"].append(CollapsedCPLayer)
-    LAYER_TYPES["cp-tucker"].append(TuckerLayer)
 
 
 efamily_kwargs: dict = {
@@ -231,7 +220,6 @@ for epoch_count in range(1, args.max_num_epochs + 1):
         # project params in inner layers TODO: remove or edit?
         if args.reparam == "clamp":
             for layer in pc.inner_layers:
-                # note, those are collapsed but we should also include non collapsed versions
                 if type(layer) in [UncollapsedCPLayer, CollapsedCPLayer, ScaledSharedCPLayer, SharedCPLayer]:
                     layer.params_in().data.clamp_(min=sqrt_eps)
                     if isinstance(layer, ScaledSharedCPLayer):
@@ -240,9 +228,6 @@ for epoch_count in range(1, args.max_num_epochs + 1):
                         layer.params_out().data.clamp_(min=sqrt_eps)
                 else:
                     layer.params().data.clamp_(min=sqrt_eps)
-
-        # if args.progressbar and batch_count % 10 == 0:
-        #     pbar.set_description(f"Epoch {epoch_count} Train LL={log_likelihood.item() / args.batch_size :.2f})")
 
     train_ll = train_ll / len(train_loader.dataset)
     valid_ll = eval_loglikelihood_batched(pc, valid_loader, device=device)
@@ -296,8 +281,8 @@ writer.add_hparams(
         'num_trainable_params': float(count_trainable_parameters(pc))
     },
     hparam_domain_discrete={
-        'dataset':      ['mnist', 'fashion_mnist', 'celeba'],
-        'rg':           ['QG', 'QT', 'PD', 'CLT', 'RQT'],
+        'dataset':      ["celeba"] + [dataset for dataset in datasets.MNIST],
+        'rg':           ['QG', 'QT', 'PD'],
         'layer':        [layer for layer in LAYER_TYPES],
         'input_type':   [input_type for input_type in INPUT_TYPES],
         'reparam':      [reparam for reparam in REPARAM_TYPES]
