@@ -18,13 +18,13 @@ import time
 
 from utils import check_validity_params, init_random_seeds, get_date_time_str, count_trainable_parameters
 from datasets import load_dataset
+import datasets
 from measures import eval_loglikelihood_batched, ll2bpd, eval_bpd
 
 # cirkit
 from cirkit_extension.tensorized_circuit import TensorizedPC
 from cirkit.models.functional import integrate
 from cirkit.layers.sum_product import CollapsedCPLayer, SharedCPLayer, UncollapsedCPLayer
-
 
 
 parser = argparse.ArgumentParser()
@@ -176,8 +176,6 @@ for epoch_count in range(1, args.max_num_epochs + 1):
     train_ll = train_ll / len(train_loader.dataset)
     valid_ll = eval_loglikelihood_batched(pc, valid_loader, device=device)
 
-
-
     # Not improved
     if valid_ll <= best_valid_ll:
         patience_counter -= 1
@@ -232,7 +230,8 @@ writer.add_hparams(
         'num_params':       count_trainable_parameters(pc)
     },
     hparam_domain_discrete={
-        'dataset':      ['mnist', 'fashion_mnist', 'celeba']
+        'dataset':      ["celeba"] + [dataset for dataset in datasets.MNIST],
+        'rg':           ['QG', 'PD'],
     },
 )
 writer.close()
