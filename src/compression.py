@@ -12,7 +12,6 @@ from tensorly import set_backend
 from tqdm import tqdm
 from torch.utils.data import DataLoader
 
-sys.path.append(os.path.join(os.getcwd(), "cirkit"))
 sys.path.append(os.path.join(os.getcwd(), "src"))
 
 from measures import eval_bpd

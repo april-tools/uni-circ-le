@@ -10,7 +10,7 @@ import torch
 from cirkit_extension.tensorized_circuit import TensorizedPC
 from cirkit_extension.cp_shared import ScaledSharedCPLayer
 
-from cirkit.layers.sum_product import CollapsedCPLayer, TuckerLayer, SharedCPLayer, UncollapsedCPLayer
+from cirkit.layers.sum_product import CollapsedCPLayer, SharedCPLayer, UncollapsedCPLayer
 from cirkit.layers.sum import SumLayer
 
 

@@ -2,7 +2,6 @@ import sys
 import os
 from typing import Literal
 
-sys.path.append(os.path.join(os.getcwd(), "cirkit"))
 sys.path.append(os.path.join(os.getcwd(), "src"))
 
 import functools

@@ -2,7 +2,7 @@ import sys
 import os
 from typing import Literal
 
-sys.path.append(os.path.join(os.getcwd(), "cirkit"))
+# sys.path.append(os.path.join(os.getcwd(), "cirkit"))
 sys.path.append(os.path.join(os.getcwd(), "src"))
 
 import functools
@@ -85,8 +85,6 @@ REPARAM_TYPES = {
     "softplus": ReparamSoftplus,
     "clamp": ReparamIdentity,
     "softmax": ReparamSoftmax
-    # "exp_temp" will be added at run-time
-    # "softmax_temp" will be added at run-time
 }
 
 assert args.layer in LAYER_TYPES
