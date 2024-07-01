@@ -18,7 +18,6 @@ import argparse
 import torch
 import time
 
-from cirkit_extension.trees import TREE_DICT
 from cirkit_extension.reparam import ReparamReLU, ReparamSoftplus
 from utils import check_validity_params, init_random_seeds, get_date_time_str, count_trainable_parameters, freeze_mixing_layers, count_pc_params
 from datasets import load_dataset
