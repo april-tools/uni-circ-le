@@ -230,7 +230,7 @@ writer.add_hparams(
         'num_params':       count_trainable_parameters(pc)
     },
     hparam_domain_discrete={
-        'dataset':      ["celeba"] + [dataset for dataset in datasets.MNIST],
+        'dataset':      ["celeba"] + [dataset for dataset in datasets.MNIST_NAMES],
         'rg':           ['QG', 'PD'],
     },
 )

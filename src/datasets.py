@@ -16,37 +16,11 @@ from PIL import Image
 from sklearn.model_selection import train_test_split
 from emnist import extract_test_samples, extract_training_samples
 import torchvision.transforms as transforms
-from torchvision.datasets import CelebA, CIFAR10
+from torchvision.datasets import MNIST, FashionMNIST, CelebA
 from torch.utils.data import DataLoader, Dataset
 
 
-
-DEBD = [
-    "ad",
-    "accidents",
-    "baudio",
-    "bbc",
-    "bnetflix",
-    "book",
-    "c20ng",
-    "cr52",
-    "cwebkb",
-    "dna",
-    "jester",
-    "kdd",
-    "kosarek",
-    "moviereview",
-    "msnbc",
-    "msweb",
-    "nltcs",
-    "plants",
-    "pumsb_star",
-    "tmovie",
-    "tretail",
-    "voting",
-]
-
-MNIST = ["mnist", "fashion_mnist", "balanced", "byclass", "letters", "e_mnist"]
+MNIST_NAMES = ["mnist", "fashion_mnist"]
 
 
 def load_dataset(name: str, ycc: bool = False):
@@ -55,42 +29,24 @@ def load_dataset(name: str, ycc: bool = False):
     :param ycc: whether to apply RGB2YCC preprocessing
     :return: train_x, valid_x, test_x
     """
+    if name in MNIST_NAMES:
+        if name == "fashion_mnist":
+            train_x = FashionMNIST(root="../data/", train=True, download=True)
+            test_x = FashionMNIST(root="../data/", train=False, download=True)
 
-    if name in DEBD:
-        train_x, test_x, valid_x = load_debd(name, dtype="float32")
-    elif name in MNIST:
-        if name in ["fashion_mnist", "mnist"]:
-            if name == "fashion_mnist":
-                (
-                    train_x,
-                    train_labels,
-                    test_x,
-                    test_labels,
-                ) = load_fashion_mnist()
-            else:
-                train_x, train_labels, test_x, test_labels = load_mnist()
-
-            valid_x = train_x[-3000:, :]
-            train_x = train_x[:-3000, :]
-
-            # print(Counter(train_labels[-3000:]))
-
-        elif name in ["balanced", "byclass", "letters", "e_mnist"]:
-            if name == "e_mnist":
-                name = "mnist"
-            train_x, train_labels = extract_training_samples(name)
-            test_x, test_labels = extract_test_samples(name)
-
-            train_x = train_x.reshape(-1, 784)
-            test_x = test_x.reshape(-1, 784)
-
-            percentage_5_train = int(train_x.shape[0] / 5)
-            valid_x = train_x[-percentage_5_train:, :]
-            train_x = train_x[:-percentage_5_train, :]
-
-            # print(Counter(train_labels[-percentage_5_train:]))
+            # train_x, train_labels, test_x, test_labels = load_fashion_mnist()
+        elif name == "mnist":
+            train_x = MNIST(root="../data/", train=True, download=True)
+            test_x = MNIST(root="../data/", train=False, download=True)
+            #train_x, train_labels, test_x, test_labels = load_mnist()
         else:
             raise AssertionError("Inconsistent mnist value ?!")
+
+        print(train_x.data.shape)
+        train_x = train_x.data.reshape(-1, 28*28).type(torch.float32)
+        test_x = test_x.data.reshape(-1, 28*28).type(torch.float32)
+        valid_x = train_x[-3000:, :]
+        train_x = train_x[:-3000, :]
 
     elif name == "celeba":
         train_x = CelebADataset(root="../data/", split='train', ycc=ycc)
@@ -259,7 +215,12 @@ def maybe_download(directory, url_base, filename):
     url = url_base + filename
     _, zipped_filepath = tempfile.mkstemp(suffix=".gz")
     print("Downloading {} to {}".format(url, filepath))
-    urllib.request.urlretrieve(url, filepath)
+
+    opener = urllib.request.URLopener()
+    opener.addheader('User-Agent', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/35.0.1916.47 Safari/537.36')
+    opener.retrieve(url, filepath)
+
+    # urllib.request.urlretrieve(url, filepath)
     print("{} Bytes".format(os.path.getsize(zipped_filepath)))
     print("Move to {}".format(filepath))
     # shutil.move(zipped_filepath, filepath)
@@ -267,6 +228,7 @@ def maybe_download(directory, url_base, filename):
 
 
 def maybe_download_mnist():
+
     mnist_files = [
         "train-images-idx3-ubyte.gz",
         "train-labels-idx1-ubyte.gz",
