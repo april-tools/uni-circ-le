@@ -48,7 +48,7 @@ parser.add_argument("--weight-decay",   type=float, default=0,          help="We
 parser.add_argument("--k",              type=int,   default=128,        help="Num categories for mixtures")
 parser.add_argument("--k-in",           type=int,   default=None,       help="Num input distributions per input region, if None then is equal to k",)
 parser.add_argument("--rg",             type=str,   default="QT",       help="Region graph: 'PD', 'QG' or 'QT'")
-parser.add_argument("--layer",          type=str,                       help="Layer type: 'tucker', 'cp' or 'cp-shared'")
+parser.add_argument("--layer",          type=str,                       help="Layer type: 'tucker', 'cp', 'cp-s' or 'cp-xs'")
 parser.add_argument("--input-type",     type=str,   default="cat",      help="input type: either 'cat' or 'bin'")
 parser.add_argument("--reparam",        type=str,   default="clamp",    help="Either 'exp', 'relu', 'exp_temp' or 'clamp'")
 parser.add_argument("--max-num-epochs", type=int,   default=None,       help="Max num epoch")
@@ -72,8 +72,8 @@ init_random_seeds(seed=args.seed)
 LAYER_TYPES = {
     "tucker": TuckerLayer,
     "cp": CollapsedCPLayer,
-    "cp-shared": SharedCPLayer,
-    "cp-shared-new": ScaledSharedCPLayer,
+    "cp-xs": SharedCPLayer,
+    "cp-s": ScaledSharedCPLayer,
     "uncollapsed-cp": UncollapsedCPLayer
 }
 
