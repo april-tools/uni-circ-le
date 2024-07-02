@@ -1,9 +1,9 @@
 numpy~=1.26.4
-scikit-learn
+scikit-learn~=1.4.0
 networkx~=3.2.1
-tqdm
-filelock
-Pillow
+tqdm~=4.66.1
+filelock~=3.13.1
+Pillow~=10.2.0
 torch>=2.0
 scipy~=1.8.1
 tensorboard~=2.15.1
