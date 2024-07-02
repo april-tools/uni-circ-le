@@ -10,7 +10,7 @@ Some examples for training experiment
 ```
 
 The model is saved as in the following example
-`out/training/models/mnist/QG/cp/cat/clamp/k_512/lr_0.01/b_256/<date_time>.mdl`
+```out/training/models/mnist/QG/cp/cat/clamp/k_512/lr_0.01/b_256/<date_time>.mdl```
 
 Note the folder hierarchy:
 1. dataset
@@ -31,7 +31,7 @@ The _compressed_ model is saved as in the following path (basically the `--save-
 `out/compressed/mnist/example_QG/rank_1.mdl`
 
 ## Train a compressed model
-To train an existing model (e.g. a compressed one) use the following script:
+To train an existing model (e.g. a compressed one, in our example the previous compressed model) use the following script:
 ```bash
     python src/finetuning.py --dataset mnist --model-path "out/compressed/mnist/example_QG/rank_1.mdl" --lr 0.01 --rg QG --rank 1 --max-num-epochs 200 --batch-size 256 --progressbar True --gpu 0
 ```
