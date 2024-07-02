@@ -20,8 +20,6 @@ from cirkit.region_graph.poon_domingos import PoonDomingos
 from cirkit.region_graph.quad_tree import QuadTree
 from cirkit.reparams.leaf import ReparamIdentity
 from cirkit_extension.real_qt import RealQuadTree
-from cirkit_extension.trees import TREE_DICT
-from clt import tree2rg
 from datasets import load_dataset
 from cirkit_extension.tensorized_circuit import TensorizedPC
 from cirkit.layers.sum import SumLayer
@@ -195,17 +193,12 @@ if __name__ == "__main__":
     if args.rg == 'QG':
         rg = QuadTree(width=image_size, height=image_size, struct_decomp=False)
     elif args.rg == 'QT':
-        rg = QuadTree(width=image_size, height=image_size, struct_decomp=True)
+        rg = RealQuadTree(width=image_size, height=image_size)
     elif args.rg == 'PD':
         rg = PoonDomingos(shape=(image_size, image_size), delta=4)
-    elif args.rg == 'CLT':
-        rg = tree2rg(TREE_DICT[args.dataset])
-    elif args.rg == 'RQT':
-        rg = RealQuadTree(width=image_size, height=image_size)
     else:
         raise NotImplementedError("region graph not available")
 
-    # TODO: remove duplication of code
     INPUT_TYPES = {"cat": CategoricalLayer, "bin": BinomialLayer}
 
     efamily_kwargs = {
@@ -214,7 +207,6 @@ if __name__ == "__main__":
     }[args.input_type]
 
     # create UncollapsedCPLayer model
-    # TODO: edit efamily_cls and efamily_kwargs
     cp_pc = TensorizedPC.from_region_graph(
         rg=rg,
         layer_cls=UncollapsedCPLayer,

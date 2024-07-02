@@ -188,9 +188,10 @@ for epoch_count in range(1, args.max_num_epochs + 1):
         best_valid_ll = valid_ll
         patience_counter = args.patience
 
-        print(f"[{epoch_count}-th valid step]", 'train LL %.5f, valid LL %.5f, best valid LL %.5f' % (train_ll, valid_ll, best_valid_ll))
+        print(f"[{epoch_count}-th valid step] Train bpd {ll2bpd(train_ll, pc.num_vars * pc.input_layer.num_channels):.5f}, "
+              f"Valid bpd {ll2bpd(valid_ll, pc.num_vars * pc.input_layer.num_channels):.5f}, Best valid LL {best_valid_ll:.5f}")
         if device != "cpu":
-            print('max allocated GPU: %.2f' % (torch.cuda.max_memory_allocated() / 1024 ** 3))
+            print('max allocated GPU: %.2f' % (torch.cuda.max_memory_allocated(device=device) / 1024 ** 3))
 
     writer.add_scalar("train_ll", train_ll, epoch_count)
     writer.add_scalar("valid_ll", valid_ll, epoch_count)
