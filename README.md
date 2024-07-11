@@ -3,15 +3,24 @@ Used python 3.9.13
 
 ## Training
 
-Some examples for training experiment
+Some examples to train a Probabilistic Circuit
 ```bash
     python src/training.py --dataset "mnist" --model-dir "out/training" --lr 0.01 --k 512  --rg "QG" --layer "cp" --batch-size 256 --max-num-epochs 200 --gpu 0 --progressbar True
     python src/training.py --dataset "mnist" --model-dir "out/training" --lr 0.01 --k 64  --rg "QG" --layer "tucker" --batch-size 256 --max-num-epochs 200 --gpu 0 --progressbar True
     python src/training.py --dataset "fashion_mnist" --model-dir "out/training" --lr 0.01 --k 512  --rg "QG" --layer "cp" --batch-size 256 --max-num-epochs 200 --gpu 0 --progressbar True
 ```
+Useful parameters:
+- `dataset`: use `mnist`, `fashion_mnist` or `celeba`
+- `rg`: the region graph to use. Available options are `PD` (Poon Domingo's), `QG` (Quad Graph) and `QT` (Quad Tree).
+- `layer`: the parameterization (or layer) to use. Available options are `tucker`, `cp`, `cp-s`, `cp-xs`, as in the paper.
+- `k`: is the number of 
+- `lr`: the best learning rate found for `QG` or `QT` region graph is 0.01, while the best for `PD` region graph is 0.1
 
+### Example to run in local
+By training the following small CP model (can be easily executed locally on a laptop):
+```python src/training.py --dataset "mnist" --model-dir "out/training" --lr 0.01 --k 4  --rg "QG" --layer "cp" --batch-size 256 --max-num-epochs 5 --progressbar True```
 The model is saved as in the following example
-```out/training/models/mnist/QG/cp/cat/clamp/k_512/lr_0.01/b_256/<date_time>.mdl```
+```out/training/models/mnist/QG/cp/cat/clamp/k_4/lr_0.01/b_256/<date_time>.mdl```
 
 Note the folder hierarchy:
 1. dataset
