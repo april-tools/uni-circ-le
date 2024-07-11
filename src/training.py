@@ -7,7 +7,7 @@ import datasets
 sys.path.append(os.path.join(os.getcwd(), "src"))
 
 import functools
-from cirkit_extension.cp_shared import ScaledSharedCPLayer
+from probcirc_extension.cp_shared import ScaledSharedCPLayer
 print = functools.partial(print, flush=True)
 
 from torch.utils.tensorboard import SummaryWriter
@@ -18,22 +18,22 @@ import argparse
 import torch
 import time
 
-from cirkit_extension.reparam import ReparamReLU, ReparamSoftplus
+from probcirc_extension.reparam import ReparamReLU, ReparamSoftplus
 from utils import check_validity_params, init_random_seeds, get_date_time_str, count_trainable_parameters, freeze_mixing_layers, count_pc_params
 from datasets import load_dataset
 from measures import eval_loglikelihood_batched, ll2bpd
 
 
-# cirkit
-from cirkit_extension.tensorized_circuit import TensorizedPC
-from cirkit.models.functional import integrate
-from cirkit.reparams.leaf import ReparamExp, ReparamIdentity, ReparamSoftmax
-from cirkit.layers.input.exp_family.categorical import CategoricalLayer
-from cirkit.layers.input.exp_family.binomial import BinomialLayer
-from cirkit.layers.sum_product import CollapsedCPLayer, TuckerLayer, SharedCPLayer, UncollapsedCPLayer
-from cirkit.region_graph.poon_domingos import PoonDomingos
-from cirkit.region_graph.quad_tree import QuadTree
-from cirkit_extension.real_qt import RealQuadTree
+# probcirc
+from probcirc_extension.tensorized_circuit import TensorizedPC
+from probcirc.models.functional import integrate
+from probcirc.reparams.leaf import ReparamExp, ReparamIdentity, ReparamSoftmax
+from probcirc.layers.input.exp_family.categorical import CategoricalLayer
+from probcirc.layers.input.exp_family.binomial import BinomialLayer
+from probcirc.layers.sum_product import CollapsedCPLayer, TuckerLayer, SharedCPLayer, UncollapsedCPLayer
+from probcirc.region_graph.poon_domingos import PoonDomingos
+from probcirc.region_graph.quad_tree import QuadTree
+from probcirc_extension.real_qt import RealQuadTree
 
 
 parser = argparse.ArgumentParser()

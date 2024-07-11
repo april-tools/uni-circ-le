@@ -5,7 +5,7 @@ from typing import Literal
 sys.path.append(os.path.join(os.getcwd(), "src"))
 
 import functools
-from cirkit_extension.cp_shared import ScaledSharedCPLayer
+from probcirc_extension.cp_shared import ScaledSharedCPLayer
 print = functools.partial(print, flush=True)
 
 from torch.utils.tensorboard import SummaryWriter
@@ -21,10 +21,10 @@ from datasets import load_dataset
 import datasets
 from measures import eval_loglikelihood_batched, ll2bpd, eval_bpd
 
-# cirkit
-from cirkit_extension.tensorized_circuit import TensorizedPC
-from cirkit.models.functional import integrate
-from cirkit.layers.sum_product import CollapsedCPLayer, SharedCPLayer, UncollapsedCPLayer
+# probcirc
+from probcirc_extension.tensorized_circuit import TensorizedPC
+from probcirc.models.functional import integrate
+from probcirc.layers.sum_product import CollapsedCPLayer, SharedCPLayer, UncollapsedCPLayer
 
 
 parser = argparse.ArgumentParser()

@@ -11,4 +11,3 @@ pandas~=2.2.0
 tensorly~=0.8.1
 opt_einsum~=3.3.0
 torchvision~=0.17.0
-python~=3.9.13

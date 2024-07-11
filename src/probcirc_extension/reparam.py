@@ -1,4 +1,4 @@
-from cirkit.reparams.leaf import ReparamLeaf
+from probcirc.reparams.leaf import ReparamLeaf
 import torch
 
 

@@ -1,13 +1,13 @@
 from typing import Optional
 
-from cirkit.layers.sum_product import SharedCPLayer
-from cirkit.reparams.leaf import ReparamIdentity
-from cirkit.reparams.reparam import Reparameterization
+from probcirc.layers.sum_product import SharedCPLayer
+from probcirc.reparams.leaf import ReparamIdentity
+from probcirc.reparams.reparam import Reparameterization
 from torch import Tensor
 import torch
 import torch.nn as nn
 
-from cirkit.utils.type_aliases import ReparamFactory
+from probcirc.utils.type_aliases import ReparamFactory
 
 
 class ScaledSharedCPLayer(SharedCPLayer):

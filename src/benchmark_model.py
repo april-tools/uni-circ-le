@@ -5,7 +5,7 @@ import sys
 import os
 
 
-sys.path.append(os.path.join(os.getcwd(), "cirkit"))
+sys.path.append(os.path.join(os.getcwd(), "probcirc"))
 sys.path.append(os.path.join(os.getcwd(), "src"))
 
 from utils import count_pc_params, count_trainable_parameters
@@ -15,16 +15,16 @@ import pandas as pd
 from torch import Tensor, optim
 from torch.utils.data import DataLoader, TensorDataset
 
-from cirkit.layers.input.exp_family import CategoricalLayer
-from cirkit.layers.sum_product.tucker import TuckerLayer
-from cirkit.layers.sum_product.cp import CollapsedCPLayer, SharedCPLayer
-from cirkit_extension.tensorized_circuit import TensorizedPC
-from cirkit.region_graph.poon_domingos import PoonDomingos
-from cirkit.region_graph.quad_tree import QuadTree
-from cirkit_extension.real_qt import RealQuadTree
+from probcirc.layers.input.exp_family import CategoricalLayer
+from probcirc.layers.sum_product.tucker import TuckerLayer
+from probcirc.layers.sum_product.cp import CollapsedCPLayer, SharedCPLayer
+from probcirc_extension.tensorized_circuit import TensorizedPC
+from probcirc.region_graph.poon_domingos import PoonDomingos
+from probcirc.region_graph.quad_tree import QuadTree
+from probcirc_extension.real_qt import RealQuadTree
 from clt import tree2rg
-from cirkit_extension.trees import TREE_DICT
-from cirkit_extension.cp_shared import ScaledSharedCPLayer
+from probcirc_extension.trees import TREE_DICT
+from probcirc_extension.cp_shared import ScaledSharedCPLayer
 
 
 from typing import Callable, Tuple, TypeVar

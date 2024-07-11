@@ -3,8 +3,8 @@ from typing import List
 import numpy as np
 import torch
 
-from cirkit.models.functional import integrate
-from cirkit_extension.tensorized_circuit import TensorizedPC
+from probcirc.models.functional import integrate
+from probcirc_extension.tensorized_circuit import TensorizedPC
 from torch.utils.data import DataLoader
 
 

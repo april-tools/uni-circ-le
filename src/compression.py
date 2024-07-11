@@ -15,15 +15,15 @@ from torch.utils.data import DataLoader
 sys.path.append(os.path.join(os.getcwd(), "src"))
 
 from measures import eval_bpd
-from cirkit.layers.input.exp_family import CategoricalLayer, BinomialLayer
-from cirkit.region_graph.poon_domingos import PoonDomingos
-from cirkit.region_graph.quad_tree import QuadTree
-from cirkit.reparams.leaf import ReparamIdentity
-from cirkit_extension.real_qt import RealQuadTree
+from probcirc.layers.input.exp_family import CategoricalLayer, BinomialLayer
+from probcirc.region_graph.poon_domingos import PoonDomingos
+from probcirc.region_graph.quad_tree import QuadTree
+from probcirc.reparams.leaf import ReparamIdentity
+from probcirc_extension.real_qt import RealQuadTree
 from datasets import load_dataset
-from cirkit_extension.tensorized_circuit import TensorizedPC
-from cirkit.layers.sum import SumLayer
-from cirkit.layers.sum_product import UncollapsedCPLayer, TuckerLayer
+from probcirc_extension.tensorized_circuit import TensorizedPC
+from probcirc.layers.sum import SumLayer
+from probcirc.layers.sum_product import UncollapsedCPLayer, TuckerLayer
 
 
 @dataclass

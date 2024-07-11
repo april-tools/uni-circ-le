@@ -1,8 +1,8 @@
 from typing import List
 
-from cirkit.region_graph.region_graph import RegionGraph
-from cirkit.region_graph.rg_node import PartitionNode, RegionNode
-from cirkit.region_graph.utils import HypercubeScopeCache
+from probcirc.region_graph.region_graph import RegionGraph
+from probcirc.region_graph.rg_node import PartitionNode, RegionNode
+from probcirc.region_graph.utils import HypercubeScopeCache
 
 # TODO: add routine for add regions->part->reg structure
 # TODO: rework docstrings

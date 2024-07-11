@@ -6,19 +6,19 @@ import torch
 from torch import Tensor, nn
 import sys
 import os
-sys.path.append(os.path.join(os.getcwd(), "cirkit"))
+sys.path.append(os.path.join(os.getcwd(), "probcirc"))
 
-from cirkit.layers.input import InputLayer
-from cirkit.layers.input.exp_family import ExpFamilyLayer
-from cirkit.layers.input.integral import IntegralInputLayer
-from cirkit.layers.layer import Layer
-from cirkit.layers.scope import ScopeLayer
-from cirkit.layers.sum import SumLayer
-from cirkit.layers.sum_product import SumProductLayer
-from cirkit.region_graph import PartitionNode, RegionGraph, RegionNode
-from cirkit.reparams.leaf import ReparamIdentity
-from cirkit.utils.scope import one_hot_variables
-from cirkit.utils.type_aliases import ReparamFactory
+from probcirc.layers.input import InputLayer
+from probcirc.layers.input.exp_family import ExpFamilyLayer
+from probcirc.layers.input.integral import IntegralInputLayer
+from probcirc.layers.layer import Layer
+from probcirc.layers.scope import ScopeLayer
+from probcirc.layers.sum import SumLayer
+from probcirc.layers.sum_product import SumProductLayer
+from probcirc.region_graph import PartitionNode, RegionGraph, RegionNode
+from probcirc.reparams.leaf import ReparamIdentity
+from probcirc.utils.scope import one_hot_variables
+from probcirc.utils.type_aliases import ReparamFactory
 
 # TODO: rework docstrings
 

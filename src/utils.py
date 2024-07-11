@@ -7,11 +7,11 @@ import numpy as np
 import torch
 
 
-from cirkit_extension.tensorized_circuit import TensorizedPC
-from cirkit_extension.cp_shared import ScaledSharedCPLayer
+from probcirc_extension.tensorized_circuit import TensorizedPC
+from probcirc_extension.cp_shared import ScaledSharedCPLayer
 
-from cirkit.layers.sum_product import CollapsedCPLayer, SharedCPLayer, UncollapsedCPLayer
-from cirkit.layers.sum import SumLayer
+from probcirc.layers.sum_product import CollapsedCPLayer, SharedCPLayer, UncollapsedCPLayer
+from probcirc.layers.sum import SumLayer
 
 
 def load_model(path: str, device="cpu") -> TensorizedPC:

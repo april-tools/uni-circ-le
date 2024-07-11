@@ -10,12 +10,12 @@ from datasets import load_dataset
 
 print = functools.partial(print, flush=True)
 
-# sys.path.append(os.path.join(os.getcwd(), "cirkit"))
+# sys.path.append(os.path.join(os.getcwd(), "probcirc"))
 sys.path.append(os.path.join(os.getcwd(), "src"))
 
 from utils import *
 from measures import *
-from cirkit_extension.tensorized_circuit import TensorizedPC
+from probcirc_extension.tensorized_circuit import TensorizedPC
 
 
 parser = argparse.ArgumentParser("MNIST experiments.")
