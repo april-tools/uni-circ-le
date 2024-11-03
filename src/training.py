@@ -5,6 +5,7 @@ from typing import Literal
 import datasets
 
 sys.path.append(os.path.join(os.getcwd(), "src"))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import functools
 from probcirc_extension.cp_shared import ScaledSharedCPLayer
@@ -30,9 +31,11 @@ from probcirc.models.functional import integrate
 from probcirc.reparams.leaf import ReparamExp, ReparamIdentity, ReparamSoftmax
 from probcirc.layers.input.exp_family.categorical import CategoricalLayer
 from probcirc.layers.input.exp_family.binomial import BinomialLayer
+from probcirc.layers.input.exp_family.normal import NormalLayer
 from probcirc.layers.sum_product import CollapsedCPLayer, TuckerLayer, SharedCPLayer, UncollapsedCPLayer
 from probcirc.region_graph.poon_domingos import PoonDomingos
 from probcirc.region_graph.quad_tree import QuadTree
+from probcirc.region_graph.random_binary_tree import RandomBinaryTree
 from probcirc_extension.real_qt import RealQuadTree
 
 
@@ -47,8 +50,9 @@ parser.add_argument("--weight-decay",   type=float, default=0,          help="We
 parser.add_argument("--k",              type=int,   default=128,        help="Num categories for mixtures")
 parser.add_argument("--k-in",           type=int,   default=None,       help="Num input distributions per input region, if None then is equal to k",)
 parser.add_argument("--rg",             type=str,   default="QT",       help="Region graph: 'PD', 'QG' or 'QT'")
+parser.add_argument("--num-replica",    type=int,   default=8,          help="num replicas for BT")
 parser.add_argument("--layer",          type=str,                       help="Layer type: 'tucker', 'cp', 'cp-s' or 'cp-xs'")
-parser.add_argument("--input-type",     type=str,   default="cat",      help="input type: either 'cat' or 'bin'")
+parser.add_argument("--input-type",     type=str,   default="cat",      help="input type: either 'cat', 'bin', 'nor'")
 parser.add_argument("--reparam",        type=str,   default="clamp",    help="Either 'exp', 'relu', 'exp_temp' or 'clamp'")
 parser.add_argument("--max-num-epochs", type=int,   default=None,       help="Max num epoch")
 parser.add_argument("--batch-size",     type=int,   default=128,        help="batch size")
@@ -76,7 +80,7 @@ LAYER_TYPES = {
     "uncollapsed-cp": UncollapsedCPLayer
 }
 
-INPUT_TYPES = {"cat": CategoricalLayer, "bin": BinomialLayer}
+INPUT_TYPES = {"cat": CategoricalLayer, "bin": BinomialLayer, "nor": NormalLayer}
 REPARAM_TYPES = {
     "exp": ReparamExp,
     "relu": ReparamReLU,
@@ -96,7 +100,6 @@ if args.k_in is None:
 ###########################################################################
 
 train, valid, test = load_dataset(args.dataset, ycc=args.ycc)
-image_size = int(np.sqrt(train[0].shape[0]))  # assumes squared images
 num_channels = train[0].shape[1]
 
 train_loader = DataLoader(train, num_workers=args.num_workers,
@@ -133,18 +136,25 @@ if not os.path.exists(os.path.dirname(save_model_path)): os.makedirs(os.path.dir
 #######################################################################################
 
 if args.rg == 'QG':
+    image_size = int(np.sqrt(train[0].shape[0]))  # assumes squared images
     rg = QuadTree(width=image_size, height=image_size, struct_decomp=False)
 elif args.rg == 'QT':
+    image_size = int(np.sqrt(train[0].shape[0]))  # assumes squared images
     rg = RealQuadTree(width=image_size, height=image_size)
 elif args.rg == 'PD':
+    image_size = int(np.sqrt(train[0].shape[0]))  # assumes squared images
     rg = PoonDomingos(shape=(image_size, image_size), delta=4)
+elif args.rg == 'BT':
+    num_vars = train.size(1)
+    rg = RandomBinaryTree(num_vars=num_vars, num_repetitions=args.num_replica, depth=int(np.ceil(np.log2(num_vars))))
 else:
     raise NotImplementedError("region graph not available")
 
 
 efamily_kwargs: dict = {
     'cat': {'num_categories': 256},
-    'bin': {'n': 256}
+    'bin': {'n': 256},
+    'nor': {}
 }[args.input_type]
 
 
@@ -271,6 +281,8 @@ print('Test  bpd: ', ll2bpd(best_test_ll, pc.num_vars * pc.input_layer.num_chann
 writer.add_hparams(
     hparam_dict=vars(args),
     metric_dict={
+        'Best/Train/ll':        float(best_train_ll),
+        'Best/Train/bpd':       float(ll2bpd(best_train_ll, pc.num_vars * pc.input_layer.num_channels)),
         'Best/Valid/ll':        float(best_valid_ll),
         'Best/Valid/bpd':       float(ll2bpd(best_valid_ll, pc.num_vars * pc.input_layer.num_channels)),
         'Best/Test/ll':         float(best_test_ll),
@@ -280,8 +292,8 @@ writer.add_hparams(
         'num_trainable_params': float(count_trainable_parameters(pc))
     },
     hparam_domain_discrete={
-        'dataset':      ["celeba"] + [dataset for dataset in datasets.MNIST_NAMES],
-        'rg':           ['QG', 'QT', 'PD'],
+        'dataset':      ["celeba"] + datasets.MNIST_NAMES + datasets.UCI_DATASETS,
+        'rg':           ['QG', 'QT', 'PD', 'BT'],
         'layer':        [layer for layer in LAYER_TYPES],
         'input_type':   [input_type for input_type in INPUT_TYPES],
         'reparam':      [reparam for reparam in REPARAM_TYPES]

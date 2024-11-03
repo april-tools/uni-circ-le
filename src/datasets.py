@@ -22,8 +22,10 @@ from torch.utils.data import DataLoader, Dataset
 
 MNIST_NAMES = ["mnist", "fashion_mnist"]
 
+UCI_DATASETS = ['bsds300', 'gas', 'miniboone', 'power', 'hepmass']
 
-def load_dataset(name: str, ycc: bool = False):
+
+def load_dataset(name: str, ycc: bool = False, return_tensor: bool = True, add_channel: bool = True):
     """
     :param name: dataset name (one of DEBD or MNIST datasets)
     :param ycc: whether to apply RGB2YCC preprocessing
@@ -47,7 +49,15 @@ def load_dataset(name: str, ycc: bool = False):
         test_x = test_x.data.reshape(-1, 28*28).type(torch.float32)
         valid_x = train_x[-3000:, :]
         train_x = train_x[:-3000, :]
-
+    elif name in UCI_DATASETS:
+        train_x = np.load('../data/UCI/%s/train.npy' % name)
+        valid_x = np.load('../data/UCI/%s/valid.npy' % name)
+        test_x = np.load('../data/UCI/%s/test.npy' % name)
+        if add_channel:
+            train_x, valid_x, test_x = train_x[..., None], valid_x[..., None], test_x[..., None]
+        if return_tensor:
+            train_x, valid_x, test_x = torch.Tensor(train_x), torch.Tensor(valid_x), torch.Tensor(test_x)
+        return train_x, valid_x, test_x
     elif name == "celeba":
         train_x = CelebADataset(root="../data/", split='train', ycc=ycc)
         valid_x = CelebADataset(root="../data/", split='valid', ycc=ycc)
