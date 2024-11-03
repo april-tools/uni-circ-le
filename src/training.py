@@ -1,6 +1,7 @@
 import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../ten-pcs/')))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 # tenpcs
 from tenpcs.models.functional import integrate
@@ -281,7 +282,7 @@ writer.add_hparams(
         'num_trainable_params': float(count_trainable_parameters(pc))
     },
     hparam_domain_discrete={
-        'dataset':      ["celeba"] + datasets.MNIST_NAMES + datasets.UCI_DATASETS,
+        'dataset':      ["celeba"] + datasets.MNIST_DATASETS + datasets.UCI_DATASETS,
         'rg':           ['QG', 'QT', 'PD', 'BT'],
         'layer':        [layer for layer in LAYER_TYPES],
         'input_type':   [input_type for input_type in INPUT_TYPES],
