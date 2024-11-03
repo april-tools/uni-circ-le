@@ -53,10 +53,10 @@ def _partition_node_randomly(
 
     region_nodes: List[RegionNode] = []
     for l, r in zip(split_point[:-1], split_point[1:]):
-        assert l < r, f"Over-partitioned with proportions {proportions} on {node}."
-        region_node = RegionNode(scope[l:r], replica_idx=repetition)
-        graph.add_edge(region_node, partition_node)
-        region_nodes.append(region_node)
+        if l < r:  # A region must have as least one var, otherwise we skip it.
+            region_node = RegionNode(scope[l:r], replica_idx=repetition)
+            graph.add_edge(region_node, partition_node)
+            region_nodes.append(region_node)
 
     return region_nodes
 
