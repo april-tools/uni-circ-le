@@ -1,0 +1,3 @@
+[submodule "ten-pcs"]
+	path = ten-pcs
+	url = https://github.com/april-tools/ten-pcs.git
