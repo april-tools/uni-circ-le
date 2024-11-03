@@ -1,17 +1,15 @@
 import datetime
-import os
 import random
 from typing import Literal
-
+import os
 import numpy as np
 import torch
 
 
-from probcirc_extension.tensorized_circuit import TensorizedPC
-from probcirc_extension.cp_shared import ScaledSharedCPLayer
-
-from probcirc.layers.sum_product import CollapsedCPLayer, SharedCPLayer, UncollapsedCPLayer
-from probcirc.layers.sum import SumLayer
+from tenpcs.models.tensorized_circuit import TensorizedPC
+from tenpcs.layers.sum_product.cp_shared import ScaledSharedCPLayer
+from tenpcs.layers.sum_product import CollapsedCPLayer, SharedCPLayer, UncollapsedCPLayer
+from tenpcs.layers.sum import SumLayer
 
 
 def load_model(path: str, device="cpu") -> TensorizedPC:

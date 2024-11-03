@@ -1,12 +1,11 @@
+import sys
+import os
+# sys.path.append(os.path.join(os.getcwd(), "src"))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../ten-pcs/')))
+
 import argparse
 import functools
 from typing import List
-import sys
-import os
-
-
-sys.path.append(os.path.join(os.getcwd(), "probcirc"))
-sys.path.append(os.path.join(os.getcwd(), "src"))
 
 from utils import count_pc_params, count_trainable_parameters
 
@@ -15,16 +14,14 @@ import pandas as pd
 from torch import Tensor, optim
 from torch.utils.data import DataLoader, TensorDataset
 
-from probcirc.layers.input.exp_family import CategoricalLayer
-from probcirc.layers.sum_product.tucker import TuckerLayer
-from probcirc.layers.sum_product.cp import CollapsedCPLayer, SharedCPLayer
-from probcirc_extension.tensorized_circuit import TensorizedPC
-from probcirc.region_graph.poon_domingos import PoonDomingos
-from probcirc.region_graph.quad_tree import QuadTree
-from probcirc_extension.real_qt import RealQuadTree
-from clt import tree2rg
-from probcirc_extension.trees import TREE_DICT
-from probcirc_extension.cp_shared import ScaledSharedCPLayer
+from tenpcs.layers.input.exp_family import CategoricalLayer
+from tenpcs.layers.sum_product.tucker import TuckerLayer
+from tenpcs.layers.sum_product.cp import CollapsedCPLayer, SharedCPLayer
+from tenpcs.region_graph.poon_domingos import PoonDomingos
+from tenpcs.region_tree.quad_tree import QuadTree
+from tenpcs.region_graph.quad_graph import QuadGraph
+from tenpcs.models.tensorized_circuit import TensorizedPC
+from tenpcs.layers.sum_product.cp_shared import ScaledSharedCPLayer
 
 
 from typing import Callable, Tuple, TypeVar
@@ -207,18 +204,17 @@ def main():
 
     # create RG
     REGION_GRAPHS = {
-        'QG': lambda: QuadTree(width=SQUARE_SIZE, height=SQUARE_SIZE, struct_decomp=False),
-        'QT': lambda: QuadTree(width=SQUARE_SIZE, height=SQUARE_SIZE, struct_decomp=True),
+        'QG': lambda: QuadGraph(width=SQUARE_SIZE, height=SQUARE_SIZE),
         'PD': lambda: PoonDomingos(shape=(SQUARE_SIZE, SQUARE_SIZE), delta=4),
-        'RQT': lambda: RealQuadTree(width=SQUARE_SIZE, height=SQUARE_SIZE)
+        'QT': lambda: QuadTree(width=SQUARE_SIZE, height=SQUARE_SIZE)
     }
 
     # choose layer
     LAYER_TYPES = {
         "tucker": TuckerLayer,
         "cp": CollapsedCPLayer,
-        "cp-shared": SharedCPLayer,
-        "cp-shared-new": ScaledSharedCPLayer
+        "cp-xs": SharedCPLayer,
+        "cp-s": ScaledSharedCPLayer,
     }
 
     pc = TensorizedPC.from_region_graph(

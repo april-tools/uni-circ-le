@@ -1,5 +1,7 @@
 import os
 import sys
+# sys.path.append(os.path.join(os.getcwd(), "src"))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../ten-pcs/')))
 import argparse
 
 import pandas as pd
@@ -10,12 +12,9 @@ from datasets import load_dataset
 
 print = functools.partial(print, flush=True)
 
-# sys.path.append(os.path.join(os.getcwd(), "probcirc"))
-sys.path.append(os.path.join(os.getcwd(), "src"))
-
 from utils import *
 from measures import *
-from probcirc_extension.tensorized_circuit import TensorizedPC
+from tenpcs.models.tensorized_circuit import TensorizedPC
 
 
 parser = argparse.ArgumentParser("MNIST experiments.")

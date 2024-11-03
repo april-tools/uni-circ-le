@@ -1,11 +1,10 @@
 import sys
 import os
+# sys.path.append(os.path.join(os.getcwd(), "src"))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../ten-pcs/')))
+
 from typing import Literal
-
-sys.path.append(os.path.join(os.getcwd(), "src"))
-
 import functools
-from probcirc_extension.cp_shared import ScaledSharedCPLayer
 print = functools.partial(print, flush=True)
 
 from torch.utils.tensorboard import SummaryWriter
@@ -17,14 +16,14 @@ import torch
 import time
 
 from utils import check_validity_params, init_random_seeds, get_date_time_str, count_trainable_parameters
-from datasets import load_dataset
-import datasets
+import data.datasets as datasets
 from measures import eval_loglikelihood_batched, ll2bpd, eval_bpd
 
-# probcirc
-from probcirc_extension.tensorized_circuit import TensorizedPC
-from probcirc.models.functional import integrate
-from probcirc.layers.sum_product import CollapsedCPLayer, SharedCPLayer, UncollapsedCPLayer
+
+from tenpcs.models.tensorized_circuit import TensorizedPC
+from tenpcs.models.functional import integrate
+from tenpcs.layers.sum_product import CollapsedCPLayer, SharedCPLayer, UncollapsedCPLayer
+from tenpcs.layers.cp_shared import ScaledSharedCPLayer
 
 
 parser = argparse.ArgumentParser()
@@ -56,7 +55,7 @@ device = f"cuda:{args.gpu}" if torch.cuda.is_available() and args.gpu is not Non
 ################### load dataset & create logging utils ###################
 ###########################################################################
 
-train, valid, test = load_dataset(args.dataset)
+train, valid, test = datasets.load_dataset(args.dataset, root="../data/")
 image_size = int(np.sqrt(train[0].shape[0]))  # assumes squared images
 num_channels = train[0].shape[1]
 

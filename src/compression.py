@@ -15,15 +15,16 @@ from torch.utils.data import DataLoader
 sys.path.append(os.path.join(os.getcwd(), "src"))
 
 from measures import eval_bpd
-from probcirc.layers.input.exp_family import CategoricalLayer, BinomialLayer
-from probcirc.region_graph.poon_domingos import PoonDomingos
-from probcirc.region_graph.quad_tree import QuadTree
-from probcirc.reparams.leaf import ReparamIdentity
-from probcirc_extension.real_qt import RealQuadTree
 from datasets import load_dataset
-from probcirc_extension.tensorized_circuit import TensorizedPC
-from probcirc.layers.sum import SumLayer
-from probcirc.layers.sum_product import UncollapsedCPLayer, TuckerLayer
+
+from tenpcs.layers.input.exp_family import CategoricalLayer, BinomialLayer
+from tenpcs.region_graph.poon_domingos import PoonDomingos
+from tenpcs.reparams.leaf import ReparamIdentity
+from tenpcs.region_graph.quad_graph import QuadGraph
+from tenpcs.region_graph.real_qt import QuadTree
+from tenpcs.models.tensorized_circuit import TensorizedPC
+from tenpcs.layers.sum import SumLayer
+from tenpcs.layers.sum_product import UncollapsedCPLayer, TuckerLayer
 
 
 @dataclass
@@ -170,7 +171,7 @@ if __name__ == "__main__":
     parser.add_argument("--tucker-model-path", type=str, help="Path of the tucker model to compress")
     parser.add_argument("--save-model-dir", type=str, help="Dir where to save the compressed model")
     parser.add_argument("--dataset", type=str, help="Dataset for the experiment")
-    parser.add_argument("--rg", type=str, help="Region graph: 'PD', 'QG', 'QT' or 'RQT'")
+    parser.add_argument("--rg", type=str, help="Region graph: 'PD', 'QG', 'QT'")
     parser.add_argument("--rank", type=int, help="rank of the compressed model")
     parser.add_argument("--input-type", type=str, help="'bin' or 'cat'")
     parser.add_argument("--progressbar", type=bool, help="Print the progress bar")
@@ -191,9 +192,9 @@ if __name__ == "__main__":
         raise AssertionError("Unknown dataset")
 
     if args.rg == 'QG':
-        rg = QuadTree(width=image_size, height=image_size, struct_decomp=False)
+        rg = QuadGraph(width=image_size, height=image_size)
     elif args.rg == 'QT':
-        rg = RealQuadTree(width=image_size, height=image_size)
+        rg = QuadTree(width=image_size, height=image_size)
     elif args.rg == 'PD':
         rg = PoonDomingos(shape=(image_size, image_size), delta=4)
     else:

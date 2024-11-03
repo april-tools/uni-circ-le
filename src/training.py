@@ -1,16 +1,27 @@
 import sys
 import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../ten-pcs/')))
+
+# tenpcs
+from tenpcs.models.functional import integrate
+from tenpcs.reparams.leaf import ReparamExp, ReparamIdentity, ReparamSoftmax
+from tenpcs.layers.input.exp_family.categorical import CategoricalLayer
+from tenpcs.layers.input.exp_family.binomial import BinomialLayer
+from tenpcs.layers.input.exp_family.normal import NormalLayer
+from tenpcs.layers.sum_product import CollapsedCPLayer, TuckerLayer, SharedCPLayer, UncollapsedCPLayer
+from tenpcs.region_graph.poon_domingos import PoonDomingos
+from tenpcs.region_graph.quad_graph import QuadGraph
+from tenpcs.region_graph.random_binary_tree import RandomBinaryTree
+from tenpcs.models.tensorized_circuit import TensorizedPC
+from tenpcs.region_graph.quad_tree import QuadTree
+from tenpcs.layers.sum_product.cp_shared import ScaledSharedCPLayer
+
+from utils import check_validity_params, init_random_seeds, get_date_time_str, count_trainable_parameters, freeze_mixing_layers, count_pc_params
+import data.datasets as datasets
+from measures import eval_loglikelihood_batched, ll2bpd
+
 from typing import Literal
-
-import datasets
-
-sys.path.append(os.path.join(os.getcwd(), "src"))
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
 import functools
-from probcirc_extension.cp_shared import ScaledSharedCPLayer
-print = functools.partial(print, flush=True)
-
 from torch.utils.tensorboard import SummaryWriter
 from torch.utils.data import DataLoader
 from tqdm import tqdm
@@ -19,24 +30,8 @@ import argparse
 import torch
 import time
 
-from probcirc_extension.reparam import ReparamReLU, ReparamSoftplus
-from utils import check_validity_params, init_random_seeds, get_date_time_str, count_trainable_parameters, freeze_mixing_layers, count_pc_params
-from datasets import load_dataset
-from measures import eval_loglikelihood_batched, ll2bpd
 
-
-# probcirc
-from probcirc_extension.tensorized_circuit import TensorizedPC
-from probcirc.models.functional import integrate
-from probcirc.reparams.leaf import ReparamExp, ReparamIdentity, ReparamSoftmax
-from probcirc.layers.input.exp_family.categorical import CategoricalLayer
-from probcirc.layers.input.exp_family.binomial import BinomialLayer
-from probcirc.layers.input.exp_family.normal import NormalLayer
-from probcirc.layers.sum_product import CollapsedCPLayer, TuckerLayer, SharedCPLayer, UncollapsedCPLayer
-from probcirc.region_graph.poon_domingos import PoonDomingos
-from probcirc.region_graph.quad_tree import QuadTree
-from probcirc.region_graph.random_binary_tree import RandomBinaryTree
-from probcirc_extension.real_qt import RealQuadTree
+print = functools.partial(print, flush=True)
 
 
 parser = argparse.ArgumentParser()
@@ -63,10 +58,8 @@ parser.add_argument("--eta-min",        type=float, default=1e-4,       help='sc
 parser.add_argument("--folding-bu",     type=bool,  default=False,      help='use bottom up folding?')
 parser.add_argument("--rank",           type=int,   default=None,       help="Rank (for uncollapsed CP)")
 parser.add_argument("--num-workers",    type=int,   default=0,          help="Num workers for data loader")
-parser.add_argument("--freeze-mixing-layers",  type=str, default="all",  help="'all', 'not_last' or 'no'")
-parser.set_defaults(ycc=False)
-parser.add_argument('-ycc',        dest='ycc',                 action='store_true')
-parser.add_argument('-rgb',        dest='ycc',                 action='store_false')
+parser.add_argument("--freeze-mixing-layers",  type=str, default="all", help="'all', 'not_last' or 'no'")
+parser.add_argument("--ycc",            type=str,   default="none",     help="either 'none', 'lossless', 'lossy'")
 args = parser.parse_args()
 print(args)
 init_random_seeds(seed=args.seed)
@@ -83,8 +76,6 @@ LAYER_TYPES = {
 INPUT_TYPES = {"cat": CategoricalLayer, "bin": BinomialLayer, "nor": NormalLayer}
 REPARAM_TYPES = {
     "exp": ReparamExp,
-    "relu": ReparamReLU,
-    "softplus": ReparamSoftplus,
     "clamp": ReparamIdentity,
     "softmax": ReparamSoftmax
 }
@@ -99,7 +90,7 @@ if args.k_in is None:
 ################### load dataset & create logging utils ###################
 ###########################################################################
 
-train, valid, test = load_dataset(args.dataset, ycc=args.ycc)
+train, valid, test = datasets.load_dataset(args.dataset, ycc=args.ycc, valid_split_percentage=0.05, root='../data/')
 num_channels = train[0].shape[1]
 
 train_loader = DataLoader(train, num_workers=args.num_workers,
@@ -137,10 +128,10 @@ if not os.path.exists(os.path.dirname(save_model_path)): os.makedirs(os.path.dir
 
 if args.rg == 'QG':
     image_size = int(np.sqrt(train[0].shape[0]))  # assumes squared images
-    rg = QuadTree(width=image_size, height=image_size, struct_decomp=False)
+    rg = QuadGraph(width=image_size, height=image_size)
 elif args.rg == 'QT':
     image_size = int(np.sqrt(train[0].shape[0]))  # assumes squared images
-    rg = RealQuadTree(width=image_size, height=image_size)
+    rg = QuadTree(width=image_size, height=image_size)
 elif args.rg == 'PD':
     image_size = int(np.sqrt(train[0].shape[0]))  # assumes squared images
     rg = PoonDomingos(shape=(image_size, image_size), delta=4)
@@ -185,7 +176,6 @@ print(f"PC num of trainable params: {count_trainable_parameters(pc)}")
 
 sqrt_eps = np.sqrt(torch.finfo(torch.get_default_dtype()).tiny)  # todo find better place
 pc_pf: TensorizedPC = integrate(pc)
-torch.set_default_tensor_type("torch.FloatTensor")
 
 #######################################################################################
 ################################ optimizer & scheduler ################################
@@ -241,12 +231,6 @@ for epoch_count in range(1, args.max_num_epochs + 1):
     train_ll = train_ll / len(train_loader.dataset)
     valid_ll = eval_loglikelihood_batched(pc, valid_loader, device=device)
 
-    print(f"[{epoch_count}-th valid step] Train bpd {ll2bpd(train_ll, pc.num_vars * pc.input_layer.num_channels):.5f}, "
-          f"Valid bpd {ll2bpd(valid_ll, pc.num_vars * pc.input_layer.num_channels):.5f}, Best valid LL {best_valid_ll:.5f}")
-    if device != "cpu":
-        print('max allocated GPU: %.2f' % (torch.cuda.max_memory_allocated(device=device) / 1024 ** 3))
-
-    # Not improved
     if valid_ll <= best_valid_ll:
         patience_counter -= 1
         if patience_counter == 0:
@@ -257,6 +241,11 @@ for epoch_count in range(1, args.max_num_epochs + 1):
         torch.save(pc, save_model_path)
         best_valid_ll = valid_ll
         patience_counter = args.patience
+
+    print(f"[{epoch_count}-th valid step] Train bpd {ll2bpd(train_ll, pc.num_vars * pc.input_layer.num_channels):.5f}, "
+          f"Valid bpd {ll2bpd(valid_ll, pc.num_vars * pc.input_layer.num_channels):.5f}, Best valid LL {best_valid_ll:.5f}")
+    if device != "cpu":
+        print('max allocated GPU: %.2f' % (torch.cuda.max_memory_allocated(device=device) / 1024 ** 3))
 
     writer.add_scalar("train_ll", train_ll, epoch_count)
     writer.add_scalar("valid_ll", valid_ll, epoch_count)
