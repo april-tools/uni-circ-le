@@ -106,7 +106,7 @@ def load_mnist_family_dataset(
 ):
     assert ds_name in MNIST_DATASETS
     if transform is None:
-        transform = transforms.Compose([PIC2Tensor(), ToLong(), Flatten(0, 1), UnsqueezeDim(-2)])
+        transform = transforms.Compose([PIC2Tensor(), ToLong(), Flatten(0, 1), UnsqueezeDim(-2), Permute((1, 0))])
     if ds_name == 'mnist':
         train = MNIST(root=root, train=True, download=True, transform=transform)
         test = MNIST(root=root, train=False, download=True, transform=transform)
@@ -140,7 +140,8 @@ def load_cifar10(
             ToLong(),
             Flatten(0, 1),
             Permute((1, 0)),
-            {'lossless': Rgb2YccLossless(), 'lossy': Rgb2YccLossy(), 'none': Identity()}[ycc]
+            {'lossless': Rgb2YccLossless(), 'lossy': Rgb2YccLossy(), 'none': Identity()}[ycc],
+            Permute((1, 0))
         ])
     train = CIFAR10(root=root, train=True, download=True, transform=transform)
     test = CIFAR10(root=root, train=False, download=True, transform=transform)
