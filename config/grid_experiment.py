@@ -58,7 +58,7 @@ parser = argparse.ArgumentParser(
     description="Experiment Grid Search Script"
 )
 parser.add_argument(
-    '--script', type=str, default='src/training.py', help="Script to run for single experiment"
+    '--script', type=str, default='training.py', help="Script to run for single experiment"
 )
 parser.add_argument(
     '--config', type=str, help="Experiments grid search configuration file"
@@ -116,7 +116,7 @@ if __name__ == '__main__':
                     hp['exp-alias'] = exp_alias
                 hp.update(common_hparams)
                 cmd = build_command_string(args.script, dataset, model, hp)
-                device = device_next_id() if multi_devices else common_hparams['device']
+                device = device_next_id() if multi_devices else common_hparams['gpu']
                 if args.num_repetitions == 1:
                     commands.append((cmd, device))
                     continue

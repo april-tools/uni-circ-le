@@ -157,7 +157,10 @@ cython_debug/
 .vscode/
 
 # data and experiments
+data/
 src/data
 out/
 experiments/
 config/
+slurm/logs/
+

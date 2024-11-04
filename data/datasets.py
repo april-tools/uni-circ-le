@@ -78,9 +78,9 @@ def load_uci(
 ):
     # https://github.com/conormdurkan/autoregressive-energy-machines/blob/master/pytorch/utils/uciutils.py
     assert ds_name in UCI_DATASETS
-    train = np.load(root + '/UCI/%s/train.npy' % ds_name)
-    valid = np.load(root + '/UCI/%s/valid.npy' % ds_name)
-    test = np.load(root + '/UCI/%s/test.npy' % ds_name)
+    train = np.load(root + 'UCI/%s/train.npy' % ds_name)
+    valid = np.load(root + 'UCI/%s/valid.npy' % ds_name)
+    test = np.load(root + 'UCI/%s/test.npy' % ds_name)
     if add_channel:
         train, valid, test = train[..., None], valid[..., None], test[..., None]
     if return_torch:
