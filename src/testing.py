@@ -4,8 +4,6 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../ten-
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import argparse
 
-import pandas as pd
-
 import functools
 
 import data.datasets as datasets
@@ -55,6 +53,7 @@ print('valid bpd: ', valid_bpd)
 print('test  bpd: ', test_bpd)
 
 if args.csv_file_path is not None:
+    import pandas as pd
     csv_row = {
         "path": args.model_path,
         "train_LL": train_ll,
