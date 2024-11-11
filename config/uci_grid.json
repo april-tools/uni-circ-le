@@ -1,0 +1,64 @@
+{
+  "common":
+  {
+    "model-dir": "uci-out",
+    "max-num-epochs": 1000,
+    "patience": 10,
+    "device": "cuda"
+  },
+  "datasets": ["power", "gas", "hepmass", "miniboone", "bsds300"],
+  "grid":
+  {
+    "common":
+    {
+      "batch-size": 512,
+      "lr": [1e-3, 5e-3, 1e-2],
+      "input-type": "nor",
+      "reparam": "clamp",
+      "rg": "BT"
+    },
+    "models":
+    {
+      "power|gas":
+      {
+        "Tucker":
+        {
+          "layer": "tucker",
+          "k": [16, 32, 64, 128, 256]
+        },
+        "CP":
+        {
+          "layer": "cp",
+          "k": [16, 32, 64, 128, 256]
+        }
+      },
+      "hepmass|miniboone":
+      {
+        "Tucker":
+        {
+          "layer": "tucker",
+          "k": [8, 16, 32, 64, 128]
+        },
+        "CP":
+        {
+          "layer": "cp",
+          "k": [8, 16, 32, 64, 128]
+        }
+      },
+      "bsds300":
+      {
+        "Tucker":
+        {
+          "layer": "tucker",
+          "k": [4, 8, 16, 32, 64]
+        },
+        "CP":
+        {
+          "layer": "cp",
+          "k": [4, 8, 16, 32, 64]
+        }
+      }
+    }
+  }
+}
+
