@@ -12,16 +12,17 @@ from tensorly import set_backend
 from tqdm import tqdm
 from torch.utils.data import DataLoader
 
-sys.path.append(os.path.join(os.getcwd(), "src"))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../ten-pcs/')))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from measures import eval_bpd
-from datasets import load_dataset
+from data.datasets import load_dataset
 
 from tenpcs.layers.input.exp_family import CategoricalLayer, BinomialLayer
 from tenpcs.region_graph.poon_domingos import PoonDomingos
 from tenpcs.reparams.leaf import ReparamIdentity
 from tenpcs.region_graph.quad_graph import QuadGraph
-from tenpcs.region_graph.real_qt import QuadTree
+from tenpcs.region_graph.quad_tree import QuadTree
 from tenpcs.models.tensorized_circuit import TensorizedPC
 from tenpcs.layers.sum import SumLayer
 from tenpcs.layers.sum_product import UncollapsedCPLayer, TuckerLayer
@@ -228,6 +229,6 @@ if __name__ == "__main__":
     torch.save(cp_pc, os.path.join(args.save_model_dir, f"rank_{args.rank}.mdl"))
 
     # evaluate test bpd
-    _, _, test = load_dataset(args.dataset)
+    _, _, test = load_dataset(args.dataset, valid_split_percentage=0.1)
     test_loader = DataLoader(test, batch_size=args.batch_size, shuffle=False)
     print(f"Test bpd: {eval_bpd(cp_pc, test_loader, device)}")

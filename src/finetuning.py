@@ -2,6 +2,7 @@ import sys
 import os
 # sys.path.append(os.path.join(os.getcwd(), "src"))
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../ten-pcs/')))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from typing import Literal
 import functools
@@ -22,8 +23,8 @@ from measures import eval_loglikelihood_batched, ll2bpd, eval_bpd
 
 from tenpcs.models.tensorized_circuit import TensorizedPC
 from tenpcs.models.functional import integrate
-from tenpcs.layers.sum_product import CollapsedCPLayer, SharedCPLayer, UncollapsedCPLayer
-from tenpcs.layers.cp_shared import ScaledSharedCPLayer
+from tenpcs.layers.sum_product.cp import CollapsedCPLayer, SharedCPLayer, UncollapsedCPLayer
+from tenpcs.layers.sum_product.cp_shared import ScaledSharedCPLayer
 
 
 parser = argparse.ArgumentParser()
@@ -55,7 +56,7 @@ device = f"cuda:{args.gpu}" if torch.cuda.is_available() and args.gpu is not Non
 ################### load dataset & create logging utils ###################
 ###########################################################################
 
-train, valid, test = datasets.load_dataset(args.dataset, root="../data/")
+train, valid, test = datasets.load_dataset(args.dataset, valid_split_percentage=0.1) # , root="../data/")
 image_size = int(np.sqrt(train[0].shape[0]))  # assumes squared images
 num_channels = train[0].shape[1]
 

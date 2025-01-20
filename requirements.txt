@@ -1,13 +1,14 @@
-numpy~=1.26.4
+numpy~=1.24.4
 scikit-learn~=1.4.0
 networkx~=3.2.1
 tqdm~=4.66.1
 filelock~=3.13.1
 Pillow~=10.2.0
-torch>=2.0
+torch>=2.2.0
 scipy~=1.8.1
 tensorboard~=2.15.1
 pandas~=2.2.0
 tensorly~=0.8.1
 opt_einsum~=3.3.0
 torchvision~=0.17.0
+packaging
