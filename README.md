@@ -1,7 +1,7 @@
 # uni-circ-le
 
 This is the official repository containing the code to reproduce the experiments shown in
-[_"What is the Relationship between Tensor Factorizations and Circuits (and How Can We Exploit it)?"_](https://arxiv.org/abs/2409.07953),
+[_"What is the Relationship between Tensor Factorizations and Circuits (and How Can We Exploit it)?"_](https://openreview.net/forum?id=Y7dRmpGiHj),
 which has been accepted in TMLR with the featured certification.
 
 **Abstract:**
