@@ -4,6 +4,13 @@ This is the official repository containing the code to reproduce the experiments
 [_"What is the Relationship between Tensor Factorizations and Circuits (and How Can We Exploit it)?"_](https://arxiv.org/abs/2409.07953),
 which has been accepted in TMLR with the featured certification.
 
+**Abstract:**
+We establish a rigorous connection between circuit representations and tensor factorizations.
+By doing so, we highlight a series of opportunities that can benefit both communities.
+Our work generalizes popular tensor factorizations within the circuit language, and unifies various circuit learning algorithms under a single factorization framework.
+In turn, this allows us to systematically construct and explore various circuit and tensor factorization models while maintaining tractability.
+We show the effectiveness of our framework through extensive empirical evaluations, and highlight new research opportunities for tensor factorizations in probabilistic modeling. 
+
 > [!NOTE]
 > The current implementation of tensorized circuits in this repository is based on [_ten-pcs_](https://github.com/april-tools/ten-pcs),
 > which has been deprecated in favour of [_cirkit_](https://github.com/april-tools/cirkit),
